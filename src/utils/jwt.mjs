@@ -1,26 +1,44 @@
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken"
+import dotenv from "dotenv"
+import { v4 as uuidv4 } from "uuid"
 
-/**
- * Generate a JSON Web Token
- * @param {string} id - The user ID to encode
- * @param {string} expiresIn - Expiration time (default '30d')
- * @returns {string} The signed JWT
- */
-export const generateToken = (id, expiresIn = '30d') => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'fallback_secret', {
-    expiresIn,
-  });
-};
+dotenv.config()
 
-/**
- * Verify and decode a JSON Web Token
- * @param {string} token - The token to verify
- * @returns {Object} decoded payload or throws an error
- */
-export const verifyToken = (token) => {
-  try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-  } catch (error) {
-    throw new Error('Not authorized, token failed');
-  }
-};
+const {
+  JWT_ACCESS_SECRET,
+  JWT_ACCESS_EXPIRATION,
+  JWT_REFRESH_SECRET,
+  JWT_REFRESH_EXPIRATION,
+} = process.env
+
+// ---------- ACCESS TOKEN ----------
+export const generateAccessToken = user => {
+  return jwt.sign(
+    {
+      sub: user._id,
+      role: user.role,
+    },
+    JWT_ACCESS_SECRET,
+    { expiresIn: JWT_ACCESS_EXPIRATION || "15m", algorithm: "HS256" }
+  )
+}
+
+export const verifyAccessToken = token => {
+  return jwt.verify(token, JWT_ACCESS_SECRET, { algorithms: ["HS256"] })
+}
+
+// ---------- REFRESH TOKEN ----------
+export const generateRefreshToken = user => {
+  return jwt.sign(
+    {
+      sub: user._id,
+      jti: uuidv4(),
+    },
+    JWT_REFRESH_SECRET,
+    { expiresIn: JWT_REFRESH_EXPIRATION || "1d", algorithm: "HS256" }
+  )
+}
+
+export const verifyRefreshToken = token => {
+  return jwt.verify(token, JWT_REFRESH_SECRET, { algorithms: ["HS256"] })
+}

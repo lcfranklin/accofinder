@@ -13,7 +13,7 @@ export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
       origin: allowedOrigins, 
-      // methods:['GET','POST', 'PUT', 'PATCH', 'DELETE' ]
+      methods:['GET','POST', 'PUT', 'PATCH', 'DELETE' ],
       // Credentials:
     },
   });

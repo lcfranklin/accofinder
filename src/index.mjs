@@ -15,8 +15,8 @@ import notificationRoutes from './routes/notificationRoutes.mjs';
 import disputeRoutes from './routes/disputeRoutes.mjs';
 import paymentRoutes from './routes/paymentRoutes.mjs';
 import authRoutes from './routes/authRoutes.mjs';
-
 import { notFound, errorHandler } from './middleware/errorMiddleware.mjs';
+
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
@@ -46,7 +46,7 @@ const startServer = async () => {
   try {
     await connectDB();
     server.listen(PORT, () => {
-      console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port: ${PORT}`);
+      console.log(`Server running in ${process.env.MODE_ENV || 'development'} mode on port: ${PORT}`);
     });
   } catch (error) {
     console.error(`Error starting server: ${error.message}`);

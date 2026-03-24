@@ -1,12 +1,13 @@
 import express from 'express';
 import * as userController from '../controllers/userController.mjs';
-import { protect } from '../middleware/authMiddleware.mjs';
-import { userValidationRules, validate } from '../validaters/userValidator.mjs';
+import { authenticateJWT } from '../middleware/authMiddleware.mjs';
+import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
+import {registerUserSchema} from '../validators/userValidator.mjs'
 
-const router = express.Router();
+const userRoutes = express.Router();
 
-router.get('/', protect, userController.getUsers);
+userRoutes.get('/', authenticateJWT, userController.getUsers);
 
-router.post('/', userValidationRules(), validate, userController.createUser);
+userRoutes.post('/', validateRequest(registerUserSchema), userController.createUser);
 
-export default router;
+export default userRoutes;
