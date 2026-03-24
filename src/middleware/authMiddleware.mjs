@@ -1,7 +1,10 @@
-import jwt from 'jsonwebtoken';
 import User from '../models/User.mjs';
+import dotenv from "dotenv"
+import { verifyAccessToken } from '../utils/jwt.mjs';
 
-export const protect = async (req, res, next) => {
+dotenv.config();
+
+export const authenticateJWT = async (req, res, next) => {
   let token;
 
   if (
@@ -10,7 +13,7 @@ export const protect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+      const decoded = verifyAccessToken(token);
       req.user = await User.findById(decoded.id).select('-password');
       next();
     } catch (error) {

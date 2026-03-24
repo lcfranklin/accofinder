@@ -1,21 +1,28 @@
 import multer from 'multer';
 import path from 'path';
+import fs from "fs";
 
 // Define storage for uploaded files
 const storage = multer.diskStorage({
-  destination(req, file, cb) {
-    // Files will be stored in an 'uploads' directory at the root
-    cb(null, 'uploads/');
+  destination: function (req, file, cb) {
+    const userId = req.user._id.toString();
+    const dir = `./uploads/${userId}`;
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    cb(null, dir);
   },
-  filename(req, file, cb) {
-    cb(
-      null,
-      `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`
-    );
-  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname); 
+    const type = file.fieldname; 
+    const filename = `${type}${ext}`;
+    cb(null, filename);
+  }
 });
 
-// Create file filter to restrict uploads to images
+
 const checkFileType = (file, cb) => {
   const filetypes = /jpg|jpeg|png|webp/;
   const extname = filetypes.test(
@@ -26,15 +33,14 @@ const checkFileType = (file, cb) => {
   if (extname && mimetype) {
     return cb(null, true);
   } else {
-    cb(new Error('Images only!'));
+    cb(new Error('forbidden file forma: only images  are allowed!'));
   }
 };
 
-// Configured multer instance ready for use in routes
 const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 5 * 1024 * 1024, 
   },
   fileFilter: function (req, file, cb) {
     checkFileType(file, cb);

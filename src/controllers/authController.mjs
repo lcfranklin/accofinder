@@ -1,6 +1,6 @@
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import User from '../models/User.mjs';
-import { generateToken } from '../utils/jwt.mjs';
+import { generateAccessToken } from '../utils/jwt.mjs';
 
 export const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, role } = req.body;
@@ -19,7 +19,7 @@ export const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (user) {
-    const token = generateToken(user._id);
+    const token = generateAccessToken(user);
 
     sendResponse(res, 201, true, 'User registered successfully', {
       _id: user._id,
@@ -39,7 +39,7 @@ export const loginUser = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email });
 
   if (user && (await user.matchPassword(password))) {
-    const token = generateToken(user._id);
+    const token = generateAccessToken(user);
 
     sendResponse(res, 200, true, 'Login successful', {
       _id: user._id,
@@ -49,6 +49,6 @@ export const loginUser = asyncHandler(async (req, res) => {
       token,
     });
   } else {
-    sendResponse(res, 401, false, 'Invalid email or password');
+    sendResponse(res, 401, false, 'Invalid username or password');
   }
 });

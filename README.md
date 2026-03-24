@@ -30,7 +30,7 @@ NODE_ENV=development
 MONGO_URI=mongodb://localhost:27017/accofinder # Or your MongoDB Atlas URI
 
 # JWT and Security
-JWT_SECRET=your_super_secret_jwt_signature
+JWT_ACCESS_SECRET=your_super_secret_jwt_signature
 
 # Payments (Stripe)
 STRIPE_SECRET_KEY=sk_test_... # Your Stripe API Secret
