@@ -50,12 +50,13 @@ export const createAdmin = async () => {
         return
         }
 
-        const hashedPassword = await hashPassword(adminPassword)
-
         const admin = await User.create({
-        name:"admin",
+        name:{
+            firstName: "admin",
+            surname:"admin"
+        },
         email: adminEmail,
-        password: hashedPassword,
+        password: adminPassword,
         role: "admin",
         })
 
