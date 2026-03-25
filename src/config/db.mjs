@@ -28,7 +28,6 @@ const connectDB = async () => {
 
 export default connectDB;
 
-
 export const createAdmin = async () => {
     const adminId = process.env.ADMIN_ID
     const adminEmail = process.env.ADMIN_EMAIL
