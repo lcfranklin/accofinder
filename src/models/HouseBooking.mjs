@@ -27,6 +27,6 @@ const houseBooking = new mongoose.Schema({
   },
 });
 
-const Booking = mongoose.model('Booking', houseBooking);
+const HouseBooking = mongoose.model('HouseBooking', houseBooking);
 
-export default Booking;
+export default HouseBooking;
