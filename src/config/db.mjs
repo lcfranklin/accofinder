@@ -5,8 +5,8 @@ import User from "../models/User.mjs";
 
 dotenv.config();
 
-const CLUSTER_URI = process.env.MONGO_URL_CLUSTER;
-const CAMPUS_URI = process.env.MONGO_URI_CAMPUS;  
+const CLUSTER_URI = process.env.MONGO_URL_CLASTER;
+const CAMPUS_URI = process.env.MONGO_URI_CAMPUSS;  
 
 const connectDB = async () => {
     try {
@@ -60,7 +60,7 @@ export const createAdmin = async () => {
         role: "admin",
         })
 
-        console.log("admin account created:", admin.emailAddress)
+        console.log("admin account created:", admin.email)
     } catch (error) {
         console.error("Failed to create admin:", error.message)
     }
