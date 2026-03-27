@@ -5,8 +5,8 @@ import User from "../models/User.mjs";
 
 dotenv.config();
 
-const CLUSTER_URI = process.env.MONGO_URL_CLUSTER;
-const CAMPUS_URI = process.env.MONGO_URI_CAMPUS;  
+const CLUSTER_URI = process.env.MONGO_URL_CLASTER;
+const CAMPUS_URI = process.env.MONGO_URI_CAMPUSS;  
 
 const connectDB = async () => {
     try {
