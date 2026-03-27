@@ -23,17 +23,30 @@ AccoFinder is an accommodation finder backend powered by Node.js, Express, and M
 Create a `.env` file in the root of the project with the following keys:
 
 ```env
-PORT=5000
-NODE_ENV=development
+PORT=3000
+MODE_ENV=development
 
 # Database
-MONGO_URI=mongodb://localhost:27017/accofinder # Or your MongoDB Atlas URI
+MONGO_URL_CAMPUS=mongodb://localhost:27017/accofinder_db
+MONGO_URL_CLUSTER=mongodb://localhost:27017/accofinder_db
 
-# JWT and Security
-JWT_ACCESS_SECRET=your_super_secret_jwt_signature
+# JWT Configuration
+JWT_ACCESS_SECRET=your_jwt_access_secret
+JWT_ACCESS_EXPIRATION=15m
+JWT_REFRESH_SECRET=your_jwt_refresh_secret
+JWT_REFRESH_EXPIRATION=7d
 
-# Payments (Stripe)
-STRIPE_SECRET_KEY=sk_test_... # Your Stripe API Secret
+# Session Configuration
+SESSION_SECRET=your_session_secret
+
+# Other Configuration
+ADMIN_ID=...
+ADMIN_EMAIL=...
+ADMIN_PASSWORD=...
+
+# Payments (Stripe/Paychangu)
+STRIPE_SECRET_KEY=sk_test_... 
+PAYCHANGU_SECRET_KEY=sk_test_...
 ```
 
 ## Running the Application
