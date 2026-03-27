@@ -10,12 +10,13 @@ import connectDB from './config/db.mjs';
 import { initSocket } from './sockets/socketHandler.mjs';
 
 import userRoutes from './routes/userRoutes.mjs';
-import houseRoutes from './routes/houseRoutes.mjs';
 import notificationRoutes from './routes/notificationRoutes.mjs';
 import disputeRoutes from './routes/disputeRoutes.mjs';
 import paymentRoutes from './routes/paymentRoutes.mjs';
 import authRoutes from './routes/authRoutes.mjs';
 import { notFound, errorHandler } from './middleware/errorMiddleware.mjs';
+import houseBookingRoutes from './routes/houseBookingRoutes.mjs';
+import houseListingRoutes from './routes/houseListingRoutes.mjs';
 
 dotenv.config();
 
@@ -33,7 +34,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use('/api/users', userRoutes);
-app.use('/api/houses', houseRoutes);
+app.use('/api/house-listing', houseListingRoutes);
+app.use('/api/house-booking', houseBookingRoutes)
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);

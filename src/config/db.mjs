@@ -28,7 +28,6 @@ const connectDB = async () => {
 
 export default connectDB;
 
-
 export const createAdmin = async () => {
     const adminId = process.env.ADMIN_ID
     const adminEmail = process.env.ADMIN_EMAIL
@@ -51,12 +50,13 @@ export const createAdmin = async () => {
         return
         }
 
-        const hashedPassword = await hashPassword(adminPassword)
-
         const admin = await User.create({
-        name:"admin",
+        name:{
+            firstName: "admin",
+            surname:"admin"
+        },
         email: adminEmail,
-        password: hashedPassword,
+        password: adminPassword,
         role: "admin",
         })
 
