@@ -3,8 +3,11 @@ import User from '../models/User.mjs';
 import { generateAccessToken } from '../utils/jwt.mjs';
 
 export const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, confirmPassword,residentialAddress} = req.validatedData;
 
+  if (password !== confirmPassword) {
+      return sendResponse(res, 400, false, "passwords do not match");
+  }
   const userExists = await User.findOne({ email });
 
   if (userExists) {
@@ -15,12 +18,13 @@ export const registerUser = asyncHandler(async (req, res) => {
     name,
     email,
     password,
-    role: role || 'client',
+    residentialAddress,
+    role:'client',
   });
 
   if (user) {
     const token = generateAccessToken(user);
-
+    if(!token) sendResponse(res, 500, false, "token creation failed")
     sendResponse(res, 201, true, 'User registered successfully', {
       _id: user._id,
       name: user.name,

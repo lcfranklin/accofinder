@@ -19,7 +19,7 @@ export const generateAccessToken = user => {
       role: user.role,
     },
     JWT_ACCESS_SECRET,
-    { expiresIn: JWT_ACCESS_EXPIRATION || "15m", algorithm: "HS256" }
+    { expiresIn: JWT_ACCESS_EXPIRATION || "0.5m", algorithm: "HS256" }
   )
 }
 

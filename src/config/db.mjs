@@ -5,8 +5,8 @@ import User from "../models/User.mjs";
 
 dotenv.config();
 
-const CLUSTER_URI = process.env.MONGO_URL_CLUSTER;
-const CAMPUS_URI = process.env.MONGO_URI_CAMPUS;  
+const CLUSTER_URI = process.env.MONGO_URL_CLASTER;
+const CAMPUS_URI = process.env.MONGO_URI_CAMPUSS;  
 
 const connectDB = async () => {
     try {
@@ -27,7 +27,6 @@ const connectDB = async () => {
 };
 
 export default connectDB;
-
 
 export const createAdmin = async () => {
     const adminId = process.env.ADMIN_ID
@@ -51,12 +50,13 @@ export const createAdmin = async () => {
         return
         }
 
-        const hashedPassword = await hashPassword(adminPassword)
-
         const admin = await User.create({
-        name:"admin",
+        name:{
+            firstName: "admin",
+            surname:"admin"
+        },
         email: adminEmail,
-        password: hashedPassword,
+        password: adminPassword,
         role: "admin",
         })
 

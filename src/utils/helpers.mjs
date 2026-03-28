@@ -29,6 +29,8 @@ export const asyncHandler = (fn) => (req, res, next) => {
  * @param {boolean} success - Operation success flag
  * @param {string} message - User-friendly message
  * @param {any} data - Response payload
+ * 
+ * It handles response sending. whether success or failure 
  */
 export const sendResponse = (res, status, success, message, data = null) => {
   res.status(status).json({
@@ -55,9 +57,7 @@ export const formatMongooseValidationErrors = (err) => {
 
 // Capitalize first letter of a string
 export const capitalize = (str) => {
-
   return str.charAt(0).toUpperCase() + str.slice(1)
-  
 };
 
 // Format a user's full name

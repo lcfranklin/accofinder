@@ -1,32 +1,115 @@
 import mongoose from 'mongoose';
 
-const houseBooking = new mongoose.Schema({
-  house: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'House',
-    required: true,
+const { Schema, model, Types } = mongoose;
+
+const houseBookingSchema = new Schema(
+  {
+    house: {
+      type: Types.ObjectId,
+      ref: 'House',
+      required: true,
+    },
+
+    tenant: {
+      type: Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    owner: {
+      type: Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    // Booking Period
+    startDate: {
+      type: Date,
+      required: true,
+    },
+
+    endDate: {
+      type: Date,
+      required: true,
+    },
+
+    numberOfMonths: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+
+    // Pricing - Full Payment Only
+    pricePerMonth: {
+      type: Number,
+      required: true,
+    },
+
+    totalAmount: {
+      type: Number,
+      required: true,
+    },
+
+    payment: {
+      type: Types.ObjectId,
+      ref: 'Payment',
+      required: false, // Will be added after successful payment
+    },
+
+    // Payment Summary
+    isPaid: {
+      type: Boolean,
+      default: false,
+    },
+
+    paidAt: {
+      type: Date,
+    },
+
+    // Booking Status
+    status: {
+      type: String,
+      enum: [
+        'pending',
+        'confirmed',
+        'active',
+        'completed',
+        'cancelled',
+        'rejected',
+      ],
+      default: 'pending',
+    },
+
+    // Additional fields
+    specialNotes: {
+      type: String,
+      trim: true,
+    },
+
+    cancelledAt: Date,
+    cancelledBy: {
+      type: Types.ObjectId,
+      ref: 'User',
+    },
+
+    createdBy: {
+      type: Types.ObjectId,
+      ref: 'User',
+    },
   },
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    require: true,
+  {
+    timestamps: true,
   },
-  createdAt: {
-    type: Date,
-    default: Date.now(),
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'confirmed', 'cancelled'],
-    default: 'pending',
-  },
-  payment: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Payment',
-    default: null,
-  },
+);
+
+// Pre-save middleware to keep status and isPaid in sync
+houseBookingSchema.pre('save', function (next) {
+  if (this.isPaid) {
+    this.status = this.status === 'pending' ? 'confirmed' : this.status;
+  }
+  next();
 });
 
-const HouseBooking = mongoose.model('HouseBooking', houseBooking);
+const HouseBooking = model('HouseBooking', houseBookingSchema);
 
 export default HouseBooking;
