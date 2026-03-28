@@ -1,9 +1,9 @@
 import express from 'express';
 import * as disputeController from '../controllers/disputeController.mjs';
 
-const router = express.Router();
+const disputeRoutes = express.Router();
 
-router.get('/', disputeController.getDisputes);
-router.post('/', disputeController.createDispute);
+disputeRoutes.get('/', disputeController.getDisputes);
+disputeRoutes.post('/', disputeController.createDispute);
 
-export default router;
+export default disputeRoutes;

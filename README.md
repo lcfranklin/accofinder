@@ -27,17 +27,14 @@ PORT=3000
 MODE_ENV=development
 
 # Database
-MONGO_URL_CAMPUS=mongodb://localhost:27017/accofinder_db
-MONGO_URL_CLUSTER=mongodb://localhost:27017/accofinder_db
+MONGO_URL_CLASTER=mongodb://localhost:27017/accofinder_db
+MONGO_URI_CAMPUSS=mongodb://localhost:27017/accofinder_db
 
-# JWT Configuration
-JWT_ACCESS_SECRET=your_jwt_access_secret
-JWT_ACCESS_EXPIRATION=15m
-JWT_REFRESH_SECRET=your_jwt_refresh_secret
-JWT_REFRESH_EXPIRATION=7d
-
-# Session Configuration
-SESSION_SECRET=your_session_secret
+# Session & Oauth Configuration
+SESSION_SECRET=0d8f3b1a2c3d4e5f6g7h8i9j0k1l2m3n
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/callback/google
 
 # Other Configuration
 ADMIN_ID=...
