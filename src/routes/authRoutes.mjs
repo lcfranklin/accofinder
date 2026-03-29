@@ -1,11 +1,23 @@
 import express from 'express';
-import { registerUser, loginUser } from '../controllers/authController.mjs';
+import passport from 'passport';
+import { registerUser, loginUser, logoutUser, getMe, googleCallback } from '../controllers/authController.mjs';
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
-import { registerUserSchema } from '../validators/validators.mjs';
+import { registerUserSchema, loginUserSchema } from '../validators/validators.mjs';
+import { isAuthenticated } from '../middleware/authMiddleware.mjs';
 
-const router = express.Router();
+const authRoutes = express.Router();
 
-router.post('/register', validateRequest(registerUserSchema), registerUser);
-router.post('/login', loginUser);
+// Local Auth
+authRoutes.post('/register', validateRequest(registerUserSchema), registerUser);
+authRoutes.post('/login', validateRequest(loginUserSchema), loginUser);
+authRoutes.post('/logout', logoutUser);
+authRoutes.get('/me', isAuthenticated, getMe);
 
-export default router;
+// Google Auth
+authRoutes.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+authRoutes.get('/callback/google', 
+  passport.authenticate('google', { failureRedirect: '/login' }), 
+  googleCallback
+);
+
+export default authRoutes;

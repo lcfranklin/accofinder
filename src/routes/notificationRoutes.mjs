@@ -1,9 +1,9 @@
 import express from 'express';
 import * as notificationController from '../controllers/notificationController.mjs';
 
-const router = express.Router();
+const notificationRoutes = express.Router();
 
-router.get('/', notificationController.getNotifications);
-router.post('/', notificationController.createNotification);
+notificationRoutes.get('/', notificationController.getNotifications);
+notificationRoutes.post('/', notificationController.createNotification);
 
-export default router;
+export default notificationRoutes;

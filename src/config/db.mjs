@@ -60,7 +60,7 @@ export const createAdmin = async () => {
         role: "admin",
         })
 
-        console.log("admin account created:", admin.emailAddress)
+        console.log("admin account created:", admin.email)
     } catch (error) {
         console.error("Failed to create admin:", error.message)
     }
