@@ -2,7 +2,7 @@ import express from 'express';
 import * as userController from '../controllers/userController.mjs';
 import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
-import { updateProfileSchema } from '../validators/validators.mjs';
+import { updateProfileSchema } from '../validators/updateProfileSchema.mjs';
 
 const userRoutes = express.Router();
 

@@ -2,7 +2,8 @@ import express from 'express';
 import passport from 'passport';
 import { registerUser, loginUser, logoutUser, getMe, googleCallback } from '../controllers/authController.mjs';
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
-import { registerUserSchema, loginUserSchema } from '../validators/validators.mjs';
+import { registerUserSchema } from '../validators/registerUserSchema.mjs';
+import { loginUserSchema } from '../validators/loginUserSchema.mjs';
 import { isAuthenticated } from '../middleware/authMiddleware.mjs';
 
 const authRoutes = express.Router();
