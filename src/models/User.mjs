@@ -27,7 +27,12 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function() { return !this.googleId; },
+  },
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true, 
   },
   role: {
     type: String,
@@ -44,34 +49,19 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Fix 1: Use a regular function with async/await and call next properly
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
-    return next();
+// FIX: Use regular function with async/await, don't use next parameter
+userSchema.pre('save', async function(next) {
+  // Only hash password if it exists and is modified
+  if (!this.password || !this.isModified('password')) {
   }
   
   try {
     const salt = await bcrypt.genSalt(Number(process.env.SALT_ROUNDS) || 10);
     this.password = await bcrypt.hash(this.password, salt);
-    next();
   } catch (error) {
-    next(error);
+    console.log("Error", error);
   }
 });
-
-// Alternative Fix 2: Without using next (preferred for async/await)
-// userSchema.pre('save', async function () {
-//   if (!this.isModified('password')) {
-//     return;
-//   }
-  
-//   try {
-//     const salt = await bcrypt.genSalt(Number(process.env.SALT_ROUNDS) || 10);
-//     this.password = await bcrypt.hash(this.password, salt);
-//   } catch (error) {
-//     throw error;
-//   }
-// });
 
 const User = mongoose.model('User', userSchema);
 export default User;

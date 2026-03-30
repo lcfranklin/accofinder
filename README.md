@@ -23,17 +23,27 @@ AccoFinder is an accommodation finder backend powered by Node.js, Express, and M
 Create a `.env` file in the root of the project with the following keys:
 
 ```env
-PORT=5000
-NODE_ENV=development
+PORT=3000
+MODE_ENV=development
 
 # Database
-MONGO_URI=mongodb://localhost:27017/accofinder # Or your MongoDB Atlas URI
+MONGO_URL_CLASTER=mongodb://localhost:27017/accofinder_db
+MONGO_URI_CAMPUSS=mongodb://localhost:27017/accofinder_db
 
-# JWT and Security
-JWT_ACCESS_SECRET=your_super_secret_jwt_signature
+# Session & Oauth Configuration
+SESSION_SECRET=0d8f3b1a2c3d4e5f6g7h8i9j0k1l2m3n
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/callback/google
 
-# Payments (Stripe)
-STRIPE_SECRET_KEY=sk_test_... # Your Stripe API Secret
+# Other Configuration
+ADMIN_ID=...
+ADMIN_EMAIL=...
+ADMIN_PASSWORD=...
+
+# Payments (Stripe/Paychangu)
+STRIPE_SECRET_KEY=sk_test_... 
+PAYCHANGU_SECRET_KEY=sk_test_...
 ```
 
 ## Running the Application
@@ -71,9 +81,9 @@ src/
 
 ## API Endpoints (Quick Overview)
 
-- **Auth:** `/api/auth/register`, `/api/auth/login`
-- **Users:** `/api/users`
-- **Houses:** `/api/houses`
-- **Disputes:** `/api/disputes`
-- **Notifications:** `/api/notifications`
-- **Payments:** `/api/payments/create-checkout-session`
+- **Auth:** `/api/auth/register`, `/api/auth/login`, `/api/auth/google/callback`, `/api/auth/logout`
+- **Users:** `/api/users`, `/api/users/:id`, `/api/users/me/profile`, `/api/users/:id/promote`, `/api/users/:id/delete`
+- **Houses:** `/api/house-listing`, `/api/house-listing/:id`, `/api/house-listing/me/profile`, `/api/house-listing/:id/promote`, `/api/house-listing/:id/delete`
+- **Disputes:** `/api/disputes`, `/api/disputes/:id`, `/api/disputes/me/profile`, `/api/disputes/:id/promote`, `/api/disputes/:id/delete`
+- **Notifications:** `/api/notifications`, `/api/notifications/:id`, `/api/notifications/me/profile`, `/api/notifications/:id/promote`, `/api/notifications/:id/delete`
+- **Payments:** `/api/payments/create-checkout-session`, `/api/payments/:id`, `/api/payments/me/profile`, `/api/payments/:id/promote`, `/api/payments/:id/delete`

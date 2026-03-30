@@ -1,7 +1,6 @@
 
 import bcrypt from "bcrypt"
 // import {ObjectId} from "mongoose";
-import jwt from "jsonwebtoken"
 import sharp from "sharp";
 import crypto from "crypto"
 import User from "../models/User.mjs"
@@ -156,18 +155,6 @@ export const validateObjectId = (id, fieldName = "ID") => {
 
 };
 
-//geting the expiration date from jwt
-export const getExpiryDate = (token) => {
-  const decoded = jwt.decode(token)
-  const expiration = decoded ? decoded.exp : null
-
-  if(!expiration){
-    return {status:500, message:"exp null"}
-  }
-  return new Date(expiration * 1000);
-
-  
-};
 
 //optimise image
 export const optimizeImage = async (filePath) => {

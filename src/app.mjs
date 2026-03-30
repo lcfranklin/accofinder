@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import sessionConfig from './config/session.mjs';
+import passport from './config/passport/index.mjs';
 
 import connectDB from './config/db.mjs';
 
@@ -21,11 +23,20 @@ dotenv.config();
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: '*' }));
+app.use(cors({ 
+    origin: true,  
+    credentials: true, 
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept'],
+    exposedHeaders: ['Set-Cookie']
+}));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(sessionConfig);
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Routes
 app.use('/api/users', userRoutes);
