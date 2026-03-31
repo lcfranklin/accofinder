@@ -10,7 +10,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL
 const CALLBACK_URL = process.env.CALLBACK_URL
 
 
-export const initiatePayment = async (req, res) => {
+export const initPayment = async (req, res) => {
   try{
     const {bookingId, bookingFee} = req.body;
     const clientId = req.user._id;
@@ -25,7 +25,7 @@ export const initiatePayment = async (req, res) => {
       });
     }
 
-    const findBookingData = await HouseBoooking.findById(bookingId)
+    const findBookingData = await HouseBooking.findById(bookingId)
       .populate({
         path: "client",
         populate:{
