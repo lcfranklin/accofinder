@@ -8,20 +8,19 @@
 // export default paymentRoutes;
 import express from 'express';
 import {
-  getPaymentsByUser,
-  initPayment,
-  webhookHandler,
-  verify,
-  cancelPayment
+    getPaymentsByUser,
+    initPayment,
+    webhookHandler,
+    verify,
+    cancelPayment
 } from '../controllers/paymentController.mjs';
 
-import { isAuthenticated } from '../middleware/authMiddleware.mjs';
-import { checkRole } from '../middleware/roleMiddleware.mjs';
+import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
 
 const router = express.Router();
 
 // Create a checkout session (returns checkout_url)
-router.post("/init",isAuthenticateJWT,checkRole(["client"]),  initPayment);
+router.post("/init",isAuthenticated,checkRole(["client"]),  initPayment);
 
 // for verifying the paymnet.
 router.get("/verify", verify);
@@ -34,7 +33,7 @@ router.post( "/webhook", express.raw({ type: "application/json" }),webhookHandle
 
 
 // Get user (cleint) payments
-router.get('/user/:userId', authenticateJWT, checkRole(['client']), getPaymentsByUser);
+router.get('/user/:userId', isAuthenticated, checkRole(['client']), getPaymentsByUser);
 
 
 export default router;

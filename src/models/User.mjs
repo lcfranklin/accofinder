@@ -49,8 +49,7 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// FIX: Use regular function with async/await, don't use next parameter
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function() {
   // Only hash password if it exists and is modified
   if (!this.password || !this.isModified('password')) {
   }
