@@ -1,8 +1,31 @@
 import express from 'express';
-import { createCheckoutSession } from '../controllers/paymentController.mjs';
+import {
+    getPaymentsByUser,
+    initPayment,
+    webhookHandler,
+    verify,
+    cancelPayment
+} from '../controllers/paymentController.mjs';
 
-const paymentRoutes = express.Router();
+import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
 
-paymentRoutes.post('/create-checkout-session', createCheckoutSession);
+const router = express.Router();
 
-export default paymentRoutes;
+// Create a checkout session (returns checkout_url)
+router.post("/init",isAuthenticated,checkRole(["client"]),  initPayment);
+
+// for verifying the paymnet.
+router.get("/verify", verify);
+
+// for verifying the paymnet.
+router.post("/cancel",cancelPayment );
+
+//Webhook (asynchronous). IMPORTANT: raw body ONLY for this route.(for receiving notificaton)
+router.post( "/webhook", express.raw({ type: "application/json" }),webhookHandler)
+
+
+// Get user (cleint) payments
+router.get('/user/:userId', isAuthenticated, checkRole(['client']), getPaymentsByUser);
+
+
+export default router;
