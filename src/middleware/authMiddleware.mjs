@@ -1,18 +1,34 @@
 import { sendResponse } from '../utils/helpers.mjs';
+import passport from 'passport';
 
 /**
- * Middleware to check if the user is authenticated via session.
+ * Intelligent Middleware to check if the user is authenticated.
+ * It first checks for a valid session (Web).
+ * If no session is found, it falls back to checking for a Bearer JWT (Mobile/API).
  */
 export const isAuthenticated = (req, res, next) => {
-  console.log('--- Auth Check ---');
-  console.log('Session ID:', req.sessionID);
-  console.log('Authenticated:', req.isAuthenticated());
-  console.log('User:', req.user ? req.user._id : 'None');
-
-  if (req.isAuthenticated()) {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    console.log('--- Auth Check: Session Authenticated ---');
+    console.log('User ID:', req.user._id);
     return next();
   }
-  return sendResponse(res, 401, false, 'Not authenticated, please log in');
+
+  passport.authenticate('jwt', { session: false }, (err, user, info) => {
+    if (err) {
+      console.error('JWT Auth Error:', err);
+      return next(err);
+    }
+    
+    if (user) {
+      console.log('--- Auth Check: JWT Authenticated ---');
+      console.log('User ID:', user._id);
+      req.user = user; 
+      return next();
+    }
+
+    console.log('--- Auth Check: Not Authenticated ---');
+    return sendResponse(res, 401, false, 'Not authenticated. Please provide a valid session cookie or JWT.');
+  })(req, res, next);
 };
 
 /**
