@@ -2,6 +2,7 @@ import passport from 'passport';
 import User from '../../models/User.mjs';
 import localStrategy from './local.strategy.mjs';
 import googleStrategy from './google.strategy.mjs';
+import jwtStrategy from './jwt.strategy.mjs';
 
 // Serialize user into the session (save user ID)
 passport.serializeUser((user, done) => {
@@ -23,5 +24,6 @@ passport.deserializeUser(async (id, done) => {
 // Register strategies
 passport.use(localStrategy);
 passport.use(googleStrategy);
+passport.use(jwtStrategy);
 
 export default passport;

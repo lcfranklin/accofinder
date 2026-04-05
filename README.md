@@ -83,7 +83,7 @@ src/
 
 - **Auth:** `/api/auth/register`, `/api/auth/login`, `/api/auth/google/callback`, `/api/auth/logout`
 - **Users:** `/api/users`, `/api/users/:id`, `/api/users/me/profile`, `/api/users/:id/promote`, `/api/users/:id/delete`
-- **Houses:** `/api/house-listing`, `/api/house-listing/:id`, `/api/house-listing/me/profile`, `/api/house-listing/:id/promote`, `/api/house-listing/:id/delete`
-- **Disputes:** `/api/disputes`, `/api/disputes/:id`, `/api/disputes/me/profile`, `/api/disputes/:id/promote`, `/api/disputes/:id/delete`
-- **Notifications:** `/api/notifications`, `/api/notifications/:id`, `/api/notifications/me/profile`, `/api/notifications/:id/promote`, `/api/notifications/:id/delete`
-- **Payments:** `/api/payments/create-checkout-session`, `/api/payments/:id`, `/api/payments/me/profile`, `/api/payments/:id/promote`, `/api/payments/:id/delete`
+- **Houses:** `/api/house-listing`, `/api/house-listing/:id`,`/api/house-listing/:id/delete`
+- **Disputes:** `/api/disputes`, `/api/disputes/:id`, `/api/disputes/:id/delete`
+- **Notifications:** `/api/notifications`, `/api/notifications/:id`, `/api/notifications/:id/delete`
+- **Payments:** `/api/payments/create-checkout-session`, `/api/payments/:id`, `/api/payments/:id/delete`
