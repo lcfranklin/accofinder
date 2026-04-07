@@ -11,7 +11,7 @@ houseListingRoutes.get('/', houseController.getHouses);
 houseListingRoutes.post(
   '/',
   isAuthenticated,
-  checkRole('admin'),
+  checkRole(['admin', 'landlord']),
   validateRequest(createHouseSchema),
   houseController.createHouse,
 );
@@ -19,14 +19,14 @@ houseListingRoutes.get('/:id', houseController.getHouseById);
 houseListingRoutes.put(
   '/:id',
   isAuthenticated,
-  checkRole('admin'),
+  checkRole(['admin', 'landlord']),
   validateRequest(updateHouseSchema),
   houseController.updateHouse,
 );
 houseListingRoutes.delete(
   '/:id',
   isAuthenticated,
-  checkRole('admin'),
+  checkRole(['admin', 'landlord']),
   houseController.deleteHouse,
 );
 
