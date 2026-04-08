@@ -1,6 +1,6 @@
 import express from 'express';
 import passport from 'passport';
-import { registerUser, loginUser, logoutUser, getMe, googleCallback } from '../controllers/authController.mjs';
+import { registerUser, loginUser, logoutUser, getMe, googleCallback, refreshAccessToken } from '../controllers/authController.mjs';
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
 import { registerUserSchema } from '../validators/registerUserSchema.mjs';
 import { loginUserSchema } from '../validators/loginUserSchema.mjs';
@@ -12,6 +12,7 @@ const authRoutes = express.Router();
 authRoutes.post('/register', validateRequest(registerUserSchema), registerUser);
 authRoutes.post('/login', validateRequest(loginUserSchema), loginUser);
 authRoutes.post('/logout', logoutUser);
+authRoutes.post('/refresh', refreshAccessToken);
 authRoutes.get('/me', isAuthenticated, getMe);
 
 // Google Auth
