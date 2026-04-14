@@ -16,6 +16,7 @@ import paymentRoutes from './routes/paymentRoutes.mjs';
 import authRoutes from './routes/authRoutes.mjs';
 import houseBookingRoutes from './routes/houseBookingRoutes.mjs';
 import houseListingRoutes from './routes/houseListingRoutes.mjs';
+import uploadRoutes from "./routes/uploadRoutes.mjs";
 import { notFound, errorHandler } from './middleware/errorMiddleware.mjs';
 
 dotenv.config();
@@ -49,6 +50,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/auth', authRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // Error handling
 app.use(notFound);
