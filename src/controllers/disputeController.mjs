@@ -1,6 +1,7 @@
 import Dispute from '../models/Dispute.mjs';
 import HouseBooking from '../models/HouseBooking.mjs';
 import Payment from '../models/Payment.mjs'; 
+import { isAuthenticated} from '../middleware/authMiddleware.mjs';
 
 export const getDisputes = async (req, res) => {
   try {
@@ -88,7 +89,7 @@ export const resolveDispute = async (req, res) => {
 
 
       if(payment){
-        //updating tthe payment to refund
+        //updating the payment to refund
         payment.status = "refunded";
         payment.refundedAt = new Date();
         await  payment.save();
