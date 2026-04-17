@@ -1,67 +1,46 @@
 import mongoose from 'mongoose';
 import HouseBooking from '../models/HouseBooking.mjs';
+import HouseListing from '../models/HouseListing.mjs';
 
+const populateBooking = (query) =>
+  query
+    .populate('house', 'title price costCategory')
+    .populate('tenant', 'name email')
+    .populate('owner', 'name email')
+    .populate('cancelledBy', 'name email')
+    .populate('createdBy', 'name email');
+
+// GET /bookings
 export const getBookings = async (req, res, next) => {
   try {
-    const bookings = await HouseBooking.find();
-    if (!bookings) {
-      return res.status(500).json({
-        status: 'fail',
-        message: 'Failed to fetch bookings',
-      });
-    }
-
-    if (bookings.length === 0) {
-      return res.status(404).json({
-        status: 'fail',
-        message: 'No bookings available',
-      });
-    }
-
+    const bookings = await populateBooking(HouseBooking.find());
     res.status(200).json({
       status: 'success',
-      bookings,
+      results: bookings.length,
+      data: bookings,
     });
   } catch (error) {
     next(error);
   }
 };
 
-export const createBook = async (req, res, next) => {
-  try {
-    const booking = new HouseBooking(req.body);
-    const savedBooking = await booking.save();
-
-    if (!savedBooking) {
-      return res.status(500).json({
-        status: 'fail',
-        message: 'failed to create booking',
-      });
-    }
-    res.status(202).json({
-      status: 'success',
-      data: savedBooking,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
+// GET /bookings/:id
 export const getBookingById = async (req, res, next) => {
-  const bookId = req.params.id;
-  if (!mongoose.Types.ObjectId.isValid(bookId)) {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({
       status: 'fail',
-      message: 'Invalid booking ID',
+      message: 'Invalid booking ID format',
     });
   }
 
   try {
-    const booking = await HouseBooking.findById(bookId);
+    const booking = await populateBooking(HouseBooking.findById(id));
     if (!booking) {
       return res.status(404).json({
         status: 'fail',
-        message: 'Booking not found',
+        message: `Booking with id ${id} not found`,
       });
     }
 
@@ -74,59 +53,227 @@ export const getBookingById = async (req, res, next) => {
   }
 };
 
-export const deleteBooking = async (req, res, next) => {
-  const bookingId = req.params.id;
-  if (!mongoose.Types.ObjectsId.isValid(bookingId)) {
-    return res.status(400).json({
-      status: 'fail',
-      message: 'invalid booking Id',
-    });
-  }
-
+// POST /bookings
+export const createBooking = async (req, res, next) => {
   try {
-    const deletedBooking = await HouseBooking.findByIdAndDelete(bookingId);
-    if (!deletedBooking) {
-      return res.status(500).json({
+    const { houseId, startDate, endDate, specialNotes } = req.body;
+    const tenantId = req.user._id;
+
+    // fetch the house to get owner and price
+    const house = await HouseListing.findById(houseId);
+    if (!house) {
+      return res.status(404).json({
         status: 'fail',
-        message: `something wwent wrong while deleting booki with id ${bookingId}`,
+        message: 'House not found',
       });
     }
 
-    res.status(200).json({
+    // calculate number of months and total amount
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (end <= start) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'End date must be after start date',
+      });
+    }
+
+    const numberOfMonths =
+      (end.getFullYear() - start.getFullYear()) * 12 +
+      (end.getMonth() - start.getMonth());
+
+    if (numberOfMonths < 1) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Booking must be at least 1 month',
+      });
+    }
+
+    const pricePerMonth = house.price;
+    const totalAmount = pricePerMonth * numberOfMonths;
+
+    const booking = new HouseBooking({
+      house: houseId,
+      tenant: tenantId,
+      owner: house.owner,
+      startDate: start,
+      endDate: end,
+      numberOfMonths,
+      pricePerMonth,
+      totalAmount,
+      createdBy: tenantId,
+      specialNotes,
+    });
+
+    const savedBooking = await booking.save();
+
+    res.status(201).json({
       status: 'success',
-      message: `booking ${bookingId} deleted successfully`,
+      data: savedBooking,
     });
   } catch (error) {
     next(error);
   }
 };
 
+// PATCH /bookings/:id
 export const updateBooking = async (req, res, next) => {
-  const bookingId = req.params.id;
-  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({
       status: 'fail',
-      message: 'invalid booking Id',
+      message: 'Invalid booking ID format',
     });
   }
 
   try {
-    const updatedBooking = await HouseBooking.findByIdAndUpdate(
-      bookingId,
-      req.body,
-      { new: true },
+    // these fields cannot be updated directly
+    const {
+      house,
+      tenant,
+      owner,
+      isPaid,
+      paidAt,
+      payment,
+      totalAmount,
+      pricePerMonth,
+      numberOfMonths,
+      createdBy,
+      ...safeBody
+    } = req.body;
+
+    const updatedBooking = await populateBooking(
+      HouseBooking.findByIdAndUpdate(
+        id,
+        { $set: safeBody },
+        { new: true, runValidators: true },
+      ),
     );
 
     if (!updatedBooking) {
-      return res.status(500).json({
+      return res.status(404).json({
         status: 'fail',
-        message: `something wwent wrong while updating booki with id ${bookingId}`,
+        message: `Booking with id ${id} not found`,
       });
     }
 
     res.status(200).json({
       status: 'success',
       data: updatedBooking,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /bookings/:id
+export const deleteBooking = async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      status: 'fail',
+      message: 'Invalid booking ID format',
+    });
+  }
+
+  try {
+    const deletedBooking = await HouseBooking.findByIdAndDelete(id);
+    if (!deletedBooking) {
+      return res.status(404).json({
+        status: 'fail',
+        message: `Booking with id ${id} not found`,
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: `Booking ${id} deleted successfully`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /bookings/:id/cancel
+export const cancelBooking = async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      status: 'fail',
+      message: 'Invalid booking ID format',
+    });
+  }
+
+  try {
+    const booking = await HouseBooking.findById(id);
+    if (!booking) {
+      return res.status(404).json({
+        status: 'fail',
+        message: `Booking with id ${id} not found`,
+      });
+    }
+
+    const nonCancellableStatuses = ['completed', 'cancelled', 'rejected'];
+    if (nonCancellableStatuses.includes(booking.status)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Cannot cancel a booking that is already ${booking.status}`,
+      });
+    }
+
+    booking.status = 'cancelled';
+    booking.cancelledAt = new Date();
+    booking.cancelledBy = req.user._id;
+    await booking.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Booking cancelled successfully',
+      data: booking,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /bookings/:id/confirm
+export const confirmBooking = async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      status: 'fail',
+      message: 'Invalid booking ID format',
+    });
+  }
+
+  try {
+    const booking = await HouseBooking.findById(id);
+    if (!booking) {
+      return res.status(404).json({
+        status: 'fail',
+        message: `Booking with id ${id} not found`,
+      });
+    }
+
+    if (booking.status !== 'pending') {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Only pending bookings can be confirmed. Current status: ${booking.status}`,
+      });
+    }
+
+    booking.status = 'confirmed';
+    await booking.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Booking confirmed successfully',
+      data: booking,
     });
   } catch (error) {
     next(error);
