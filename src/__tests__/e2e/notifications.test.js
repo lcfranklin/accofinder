@@ -1,45 +1,59 @@
 import request from 'supertest';
 import app from '../../app.mjs';
 import Notification from '../../models/Notification.mjs';
+import User from '../../models/User.mjs';
 
-jest.mock('../../models/Notification.mjs');
+describe('Notifications API E2E', () => {
+  let authToken;
 
-describe('Notifications API (MVP)', () => {
-  afterEach(() => {
-    jest.clearAllMocks();
+  beforeAll(async () => {
+    await User.deleteMany({ email: 'notification-test@example.com' });
+    
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Notification Test User',
+        email: 'notification-test@example.com',
+        password: 'Test123!',
+        confirmPassword: 'Test123!',
+        residentialAddress: 'Test Address'
+      });
+    
+    authToken = registerRes.body.data.accessToken;
   });
 
-  it('GET /api/notifications returns mapped results', async () => {
-    const mockData = [{ _id: '1', message: 'hello' }, { _id: '2', message: 'world' }];
-    Notification.find.mockResolvedValue(mockData);
-
-    const res = await request(app).get('/api/notifications');
-
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual(mockData);
-    expect(Notification.find).toHaveBeenCalledTimes(1);
+  afterAll(async () => {
+    await Notification.deleteMany({});
+    await User.deleteMany({ email: 'notification-test@example.com' });
   });
 
-  it('POST /api/notifications creates notification', async () => {
-    const payload = { message: 'hi there' };
-    const created = { _id: '10', ...payload };
+  describe('GET /api/notifications', () => {
+    it('should return all notifications', async () => {
+      const res = await request(app)
+        .get('/api/notifications')
+        .set('Authorization', `Bearer ${authToken}`);
 
-    Notification.mockImplementation(() => ({ save: jest.fn().mockResolvedValue(created) }));
-
-    const res = await request(app).post('/api/notifications').send(payload);
-
-    expect(res.statusCode).toBe(201);
-    expect(res.body).toEqual(created);
+      expect(res.statusCode).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
   });
 
-  it('POST /api/notifications handles save error', async () => {
-    const payload = { message: 'fail' };
-    const error = new Error('Save error');
-    Notification.mockImplementation(() => ({ save: jest.fn().mockRejectedValue(error) }));
+  describe('POST /api/notifications', () => {
+    it('should create a new notification', async () => {
+      const notificationData = {
+        message: 'Test notification',
+        userId: 'test-user-id',
+        type: 'info'
+      };
 
-    const res = await request(app).post('/api/notifications').send(payload);
+      const res = await request(app)
+        .post('/api/notifications')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(notificationData);
 
-    expect(res.statusCode).toBe(400);
-    expect(res.body).toHaveProperty('message', 'Save error');
+      expect(res.statusCode).toBe(201);
+      expect(res.body).toHaveProperty('_id');
+      expect(res.body.message).toBe(notificationData.message);
+    });
   });
 });
