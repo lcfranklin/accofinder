@@ -32,6 +32,10 @@ const paymentSchema = new Schema({
         type: String,
         trim: true
     },
+    refundedAt: {
+        type: Date,
+        default: Date.now
+    },
     paidAt: Date,
     createdAt: {
         type: Date,

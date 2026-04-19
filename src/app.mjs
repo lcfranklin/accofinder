@@ -30,6 +30,9 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept'],
     exposedHeaders: ['Set-Cookie']
 }));
+// 3. Webhook route (needs raw body) for pay changu
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }), paymentRoutes);
+
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
