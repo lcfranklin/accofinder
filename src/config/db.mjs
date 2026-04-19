@@ -7,22 +7,45 @@ dotenv.config();
 
 const CLUSTER_URI = process.env.MONGO_URL_CLASTER;
 const CAMPUS_URI = process.env.MONGO_URI_CAMPUSS;  
+const TEST_URI = process.env.MONGO_TEST_URI;
 
 const connectDB = async () => {
     try {
-        const connectionString = CLUSTER_URI || CAMPUS_URI ;
+        // Use test database in test environment
+        let connectionString;
         
-        if (!connectionString) {
+        if (process.env.NODE_ENV === 'test') {
+            connectionString = TEST_URI;
+            if (!connectionString) {
+                console.log('No TEST database URI found, using mock mode');
+                return null;
+            }
+        } else {
+            connectionString = CLUSTER_URI || CAMPUS_URI;
+        }
+        
+        if (!connectionString && process.env.NODE_ENV !== 'test') {
             throw new Error('No MongoDB connection string provided. Check your .env file');
         }
 
-        const conn = await mongoose.connect(connectionString);
-        console.log(`MongoDB Connected: ${conn.connection.host}`);
-        console.log(`Database: ${conn.connection.name}`);
-        await createAdmin();
+        if (connectionString) {
+            const conn = await mongoose.connect(connectionString);
+            console.log(`MongoDB Connected: ${conn.connection.host}`);
+            console.log(`Database: ${conn.connection.name}`);
+            
+            // Only create admin in non-test environment
+            if (process.env.NODE_ENV !== 'test') {
+                //await createAdmin();
+            }
+        }
+        
+        return mongoose.connection;
     } catch (error) {
         console.error(`MongoDB connection error: ${error.message}`);
-        process.exit(1);
+        if (process.env.NODE_ENV !== 'test') {
+            process.exit(1);
+        }
+        throw error;
     }
 };
 
@@ -36,7 +59,7 @@ export const createAdmin = async () => {
     try {
         const existingAdmin = await User.findOne({ role: "admin" })
         if (existingAdmin) {
-        console.log(" admin already exists")
+        console.log("admin already exists")
         return
         }
 

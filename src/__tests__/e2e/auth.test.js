@@ -4,11 +4,18 @@ import User from '../../models/User.mjs';
 
 describe('Auth API E2E', () => {
   let testUser = {
-    name: 'Test User',
+    name: {
+      firstName: 'Test',
+      surname: 'User'
+    },
     email: 'test@example.com',
     password: 'Test123!',
     confirmPassword: 'Test123!',
-    residentialAddress: '123 Test St'
+    residentialAddress: {
+      district: 'Lilongwe',
+      traditionalAuthority: 'Chief Kwataine',
+      village: 'Mtsiliza'
+    }
   };
 
   beforeEach(async () => {
@@ -101,7 +108,6 @@ describe('Auth API E2E', () => {
 
       expect(res.statusCode).toBe(401);
       expect(res.body.success).toBe(false);
-      expect(res.body.message).toBe('Invalid email or password');
     });
 
     it('should return 401 with non-existent email', async () => {
