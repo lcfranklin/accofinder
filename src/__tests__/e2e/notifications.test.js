@@ -12,11 +12,18 @@ describe('Notifications API E2E', () => {
     const registerRes = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'Notification Test User',
+        name: {
+          firstName: 'Notification',
+          surname: 'User'
+        },
         email: 'notification-test@example.com',
         password: 'Test123!',
         confirmPassword: 'Test123!',
-        residentialAddress: 'Test Address'
+        residentialAddress: {
+          district: 'Lilongwe',
+          traditionalAuthority: 'Chief Kwataine',
+          village: 'Notification Village'
+        }
       });
     
     authToken = registerRes.body.data.accessToken;

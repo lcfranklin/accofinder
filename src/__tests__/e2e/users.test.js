@@ -16,11 +16,18 @@ describe('Users API E2E', () => {
     const adminRes = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'Admin E2E',
+        name: {
+          firstName: 'Admin',
+          surname: 'E2E'
+        },
         email: 'admin-e2e@test.com',
         password: 'Admin123!',
         confirmPassword: 'Admin123!',
-        residentialAddress: 'Admin Address'
+        residentialAddress: {
+          district: 'Lilongwe',
+          traditionalAuthority: 'Chief Kwataine',
+          village: 'Admin Village'
+        }
       });
     adminToken = adminRes.body.data.accessToken;
     adminUser = adminRes.body.data;
@@ -29,11 +36,18 @@ describe('Users API E2E', () => {
     const clientRes = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'Client E2E',
+        name: {
+          firstName: 'Client',
+          surname: 'E2E'
+        },
         email: 'client-e2e@test.com',
         password: 'Client123!',
         confirmPassword: 'Client123!',
-        residentialAddress: 'Client Address'
+        residentialAddress: {
+          district: 'Blantyre',
+          traditionalAuthority: 'Chief Chigaru',
+          village: 'Client Village'
+        }
       });
     clientToken = clientRes.body.data.accessToken;
     clientUser = clientRes.body.data;
@@ -71,7 +85,7 @@ describe('Users API E2E', () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.email).toBe('client-e2e@test.com');
-      expect(res.body.data).toHaveProperty('name', 'Client E2E');
+      expect(res.body.data.name.firstName).toBe('Client');
     });
   });
 
@@ -81,14 +95,20 @@ describe('Users API E2E', () => {
         .patch('/api/users/me/profile')
         .set('Authorization', `Bearer ${clientToken}`)
         .send({
-          name: 'Updated Client Name',
-          residentialAddress: 'Updated Address'
+          name: {
+            firstName: 'Updated Client',
+            surname: 'Name'
+          },
+          residentialAddress: {
+            district: 'Mzuzu',
+            traditionalAuthority: 'Chief Mbelwa',
+            village: 'Updated Village'
+          }
         });
 
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.name).toBe('Updated Client Name');
-      expect(res.body.data.residentialAddress).toBe('Updated Address');
+      expect(res.body.data.name.firstName).toBe('Updated Client');
     });
   });
 

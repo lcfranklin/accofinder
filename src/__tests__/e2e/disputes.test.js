@@ -13,11 +13,18 @@ describe('Disputes API E2E', () => {
     const registerRes = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'Dispute Test User',
+        name: {
+          firstName: 'Dispute',
+          surname: 'User'
+        },
         email: 'dispute-test@example.com',
         password: 'Test123!',
         confirmPassword: 'Test123!',
-        residentialAddress: 'Test Address'
+        residentialAddress: {
+          district: 'Lilongwe',
+          traditionalAuthority: 'Chief Kwataine',
+          village: 'Dispute Village'
+        }
       });
     
     authToken = registerRes.body.data.accessToken;

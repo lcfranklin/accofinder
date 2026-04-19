@@ -23,11 +23,18 @@ describe('House Booking API E2E', () => {
     const adminRes = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'Admin User',
+        name: {
+          firstName: 'Admin',
+          surname: 'User'
+        },
         email: 'admin@test.com',
         password: 'Admin123!',
         confirmPassword: 'Admin123!',
-        residentialAddress: 'Admin Address'
+        residentialAddress: {
+          district: 'Lilongwe',
+          traditionalAuthority: 'Chief Kwataine',
+          village: 'Admin Village'
+        }
       });
     adminToken = adminRes.body.data.accessToken;
     adminUser = adminRes.body.data;
@@ -36,11 +43,18 @@ describe('House Booking API E2E', () => {
     const clientRes = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'Client User',
+        name: {
+          firstName: 'Client',
+          surname: 'User'
+        },
         email: 'client@test.com',
         password: 'Client123!',
         confirmPassword: 'Client123!',
-        residentialAddress: 'Client Address'
+        residentialAddress: {
+          district: 'Blantyre',
+          traditionalAuthority: 'Chief Chigaru',
+          village: 'Client Village'
+        }
       });
     clientToken = clientRes.body.data.accessToken;
     clientUser = clientRes.body.data;
@@ -49,11 +63,18 @@ describe('House Booking API E2E', () => {
     const landlordRes = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'Landlord User',
+        name: {
+          firstName: 'Landlord',
+          surname: 'User'
+        },
         email: 'landlord@test.com',
         password: 'Landlord123!',
         confirmPassword: 'Landlord123!',
-        residentialAddress: 'Landlord Address'
+        residentialAddress: {
+          district: 'Mzuzu',
+          traditionalAuthority: 'Chief Mbelwa',
+          village: 'Landlord Village'
+        }
       });
     landlordToken = landlordRes.body.data.accessToken;
     landlordUser = landlordRes.body.data;
@@ -129,7 +150,7 @@ describe('House Booking API E2E', () => {
       expect(res.body.data).toHaveProperty('house');
       expect(res.body.data).toHaveProperty('tenant');
       expect(res.body.data.numberOfMonths).toBe(3);
-      expect(res.body.data.totalAmount).toBe(1500); // 3 * 500
+      expect(res.body.data.totalAmount).toBe(1500);
     });
 
     it('should return 401 when not authenticated', async () => {

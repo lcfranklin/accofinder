@@ -13,11 +13,18 @@ describe('Payments API E2E', () => {
     const registerRes = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'Payment Client',
+        name: {
+          firstName: 'Payment',
+          surname: 'Client'
+        },
         email: 'payment-client@test.com',
         password: 'Client123!',
         confirmPassword: 'Client123!',
-        residentialAddress: 'Client Address'
+        residentialAddress: {
+          district: 'Lilongwe',
+          traditionalAuthority: 'Chief Kwataine',
+          village: 'Payment Village'
+        }
       });
     
     clientToken = registerRes.body.data.accessToken;
