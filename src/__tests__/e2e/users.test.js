@@ -9,7 +9,7 @@ describe('Users API E2E', () => {
   let adminUser;
   let clientUser;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     await User.deleteMany({ email: { $in: ['admin-e2e@test.com', 'client-e2e@test.com'] } });
 
     // Create admin

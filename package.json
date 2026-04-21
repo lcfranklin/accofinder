@@ -5,7 +5,7 @@
   "main": "index.mjs",
   "type": "module",
   "scripts": {
-    "test": "jest",
+    "test": "jest --runInBand",
     "start:dev": "nodemon ./src/index.mjs",
     "start": "node ./src/index.mjs"
   },
