@@ -3,18 +3,21 @@ import HouseBooking from '../models/HouseBooking.mjs';
 import Payment from '../models/Payment.mjs'; 
 import { isAuthenticated} from '../middleware/authMiddleware.mjs';
 
-export const getDisputes = async (req, res) => {
+export const getDisputes = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const userRole = req.user.role;
 
     let query = {};
 
-    //if user not admin , they onl see disputes they are part of
-    if(userRole !== 'admin'){
-      query = { $or: [{reporter: userId}, {reported: userId}] };
+    //if user  admin , they  see all disputes they are part of
+    if(userRole == 'admin'){
+      query = {};
     }
 
+    if(userRole !== 'admin'){
+      query = { $or: [{reporter: userId}, {reported: userId}]};
+    }
     const disputes = await Dispute.find(query)
       .populate('reporter', 'firstName lastName email')
       .populate('relatedHouse', 'title');
@@ -72,10 +75,12 @@ export const createDispute = async (req, res) => {
       status: "success",
       message: "Dispute reported successfully",
       dispute: saveDispute
+      
+
     });
 
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    next(error);
   }
 };
 
