@@ -29,8 +29,19 @@ describe('Users API E2E', () => {
           village: 'Admin Village'
         }
       });
-    adminToken = adminRes.body.data.accessToken;
     adminUser = adminRes.body.data;
+    
+    // Promote to admin
+    await User.findByIdAndUpdate(adminUser._id, { role: 'admin' });
+    
+    // Refresh admin token with new role
+    const adminLoginRes = await request(app)
+      .post('/api/auth/login')
+      .send({
+        email: 'admin-e2e@test.com',
+        password: 'Admin123!'
+      });
+    adminToken = adminLoginRes.body.data.accessToken;
 
     // Create client
     const clientRes = await request(app)
