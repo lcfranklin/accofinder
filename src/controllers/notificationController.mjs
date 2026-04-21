@@ -3,30 +3,25 @@ import Notification from "../models/Notification.mjs";
 // Create Notification
 export const createNotification = async (req, res, next) => {
   try {
-    const { recipient, title, message, type } = req.body;
+    const { userId, message, type } = req.body;
 
     // Validate required fields
-    if (!recipient || !title || !message) {
+    if (!userId || !message) {
       return res.status(400).json({
         success: false,
-        message: "recipient, title, and message are required"
+        message: "userId and message are required"
       });
     }
 
     const notification = new Notification({
-      recipient,
-      title,
+      userId,
       message,
-      type: type || "Email" // default handled in schema too
+      type: type 
     });
 
     await notification.save();
 
-    res.status(201).json({
-      success: true,
-      message: "Notification created successfully",
-      data: notification
-    });
+    res.status(201).json(notification);
 
   } catch (error) {
     next(error);
@@ -92,18 +87,14 @@ export const deleteNotification = async (req, res, next) => {
 
 
 
-//  Get all notifications for logged-in user
+//  Get all notifications for logged-in user   recipient: req.user.id
 export const getNotifications = async (req, res, next) => {
   try {
     const notifications = await Notification
-      .find({ recipient: req.user.id }) 
+      .find({ }) 
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
-      success: true,
-      count: notifications.length,
-      data: notifications
-    });
+    res.status(200).json(notifications);
 
   } catch (error) {
     next(error);
