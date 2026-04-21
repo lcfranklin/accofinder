@@ -25,7 +25,7 @@ const houseSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-  }
+  },
 });
 
 const HouseListing = mongoose.model('House', houseSchema);
