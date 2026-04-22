@@ -71,14 +71,23 @@ describe('Users API E2E', () => {
 
   describe('GET /api/users', () => {
     it('should return 401 when not authenticated', async () => {
-      const res = await request(app).get('/api/users');
+      const res = await request(app).get(`/api/users`)
+      
       expect(res.statusCode).toBe(401);
     });
 
-    it('should return all users when authenticated', async () => {
+    it('should return 403 when not user is not admin', async () => {
+      const res = await request(app)
+      .get(`/api/users`)
+      .set('Authorization', `Bearer ${clientToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('should return all users when authenticated and authenticated user has admin role', async () => {
       const res = await request(app)
         .get('/api/users')
-        .set('Authorization', `Bearer ${clientToken}`);
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
