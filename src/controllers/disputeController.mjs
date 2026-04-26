@@ -18,11 +18,11 @@ export const getDisputes = async (req, res, next) => {
     if(userRole !== 'admin'){
       query = { $or: [{reporter: userId}, {reported: userId}]};
     }
-    const disputes = await Dispute.find(query)
-      .populate('reporter', 'firstName lastName email')
-      .populate('relatedHouse', 'title');
+    const disputes = await Dispute.find({});
+      // .populate('reporter', 'firstName lastName email')
+      // .populate('relatedHouse', 'title');
 
-      return res.status(200).json({ disputes });
+      return res.status(200).json(disputes);
 
   }catch (error) {
     next(error);  
@@ -31,53 +31,53 @@ export const getDisputes = async (req, res, next) => {
 
 export const createDispute = async (req, res) => {
   try {
-    const {bookingId, description} = req.body;
+    const {raisedBy, title, status, description} = req.body;
 
-    const reporterId = req.user._id;
-
-    const booking = await HouseBooking.findById(bookingId)
-    if(!booking){
-      return res.status(404).json({
-        status: "failed",
-        message: "Booking not found"
-      });
-    }
-    if(String(booking.tenant) !== String(reporterId)){
-      return res.status(403).json({
-        status: "failed",
-        message: "You can only report disputes for your own bookings"
-      });
-    }
-    //checking if the succesful payment exist for the booking
-    const checkPayment = await Payment.findOne({
-      booking: bookingId,
-      status: "completed"
-    })
-    if(!checkPayment){
+    if(!raisedBy || !title || !status || !description){     
       return res.status(400).json({
         status: "failed",
-        message: "Cannot report dispute for unpaid booking"
+        message: "All fields are required"
       });
     }
 
+    // const reporterId = req.user._id;
+
+    // const booking = await HouseBooking.findById(bookingId)
+    // if(!booking){
+    //   return res.status(404).json({
+    //     status: "failed",
+    //     message: "Booking not found"
+    //   });
+    // }
+    // if(String(booking.tenant) !== String(reporterId)){
+    //   return res.status(403).json({
+    //     status: "failed",
+    //     message: "You can only report disputes for your own bookings"
+    //   });
+    // }
+    // //checking if the succesful payment exist for the booking
+    // const checkPayment = await Payment.findOne({
+    //   booking: bookingId,
+    //   status: "completed"
+    // })
+    // if(!checkPayment){
+    //   return res.status(400).json({
+    //     status: "failed",
+    //     message: "Cannot report dispute for unpaid booking"
+    //   });
+    // }
+
     const newDispute = new Dispute({
-      reporter: reporterId,
-      reported: booking.landlord,
-      relatedHouse: booking.house,
-      booking: bookingId,
+      raisedBy: raisedBy,
+      title,
+      status,
       description,
-      status: "open"
+      status: status || "open"
     });
 
     const saveDispute = await newDispute.save();
 
-    return res.status(201).json({
-      status: "success",
-      message: "Dispute reported successfully",
-      dispute: saveDispute
-      
-
-    });
+    return res.status(201).json(saveDispute);
 
   } catch (error) {
     next(error);

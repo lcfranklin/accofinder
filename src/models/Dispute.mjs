@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const disputeSchema = new mongoose.Schema({
-  reporter: {
+  raisedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
@@ -20,8 +20,12 @@ const disputeSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Open', 'Under_Review', 'Resolved', 'Closed'],
-    default: 'Open',
+    enum: ['open', 'under_review', 'resolved', 'closed'],
+    default: 'open',
+  },
+  title: {
+    type: String,
+    required: true,
   },
   resolutionNotes: {
     type: String,
