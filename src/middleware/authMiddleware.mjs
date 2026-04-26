@@ -27,11 +27,7 @@ export const isAuthenticated = (req, res, next) => {
     }
 
     console.log('--- Auth Check: Not Authenticated ---');
-<<<<<<< HEAD
-    return sendResponse(res, 400, false, 'Not authenticated. Please provide a valid session cookie or JWT.');
-=======
     return sendResponse(res, 401, false, 'Not authenticated, please log in');
->>>>>>> beb291c3fddaa0a1788d19d8e23f659ee7227398
   })(req, res, next);
 };
 
