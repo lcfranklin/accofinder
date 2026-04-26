@@ -20,8 +20,8 @@ export const initPayment = async (req, res) => {
 
     if(!bookingId || !bookingFee){
       return res.status(400).json({
-        status: "failed",
-        message: "Booking ID and bookingFee required"
+        success: false,
+        message: "passportID and fee is required"
       });
     }
 
@@ -40,7 +40,7 @@ export const initPayment = async (req, res) => {
       });
     } 
     if(String(clientId)!== String(findBookingData.client._id)){ 
-      return res.status(403).json({
+      return res.status(401).json({
         status: "failed",
         message: "Unauthorized to make payment for this booking"
       });
