@@ -5,7 +5,7 @@ dotenv.config();
 
 const opts = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-  secretOrKey: process.env.JWT_ACCESS_SECRET || 'super_secret_access_key_here'
+  secretOrKey: process.env.JWT_ACCESS_SECRET 
 };
 
 const jwtStrategy = new JwtStrategy(opts, async (jwtPayload, done) => {

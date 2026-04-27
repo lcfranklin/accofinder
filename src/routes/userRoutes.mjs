@@ -6,7 +6,7 @@ import { updateProfileSchema } from '../validators/updateProfileSchema.mjs';
 
 const userRoutes = express.Router();
 
-userRoutes.get('/', isAuthenticated, userController.getUsers);
+userRoutes.get('/', isAuthenticated, checkRole(['admin']), userController.getUsers);
 
 userRoutes.get('/:id', isAuthenticated, checkRole(['admin']), userController.getUserById);
 
