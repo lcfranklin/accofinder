@@ -1,0 +1,149 @@
+@startuml User Sequence Diagram
+
+actor User
+participant "User Routes" as Routes
+participant "Auth Middleware" as Middleware
+participant "User Controller" as Controller
+database "MongoDB" as DB
+
+== Get Profile ==
+User -> Routes: GET /api/users/me/profile
+Routes -> Middleware: isAuthenticated
+alt Not Authenticated
+    Middleware -> User: 401 Unauthorized (Not authenticated)
+else Authenticated
+    Middleware -> Controller: getMyProfile(req, res)
+    Controller -> DB: findById(userId)
+    alt Profile Found
+        DB -> Controller: user object
+        Controller -> User: 200 OK (profile data)
+    else Profile Not Found
+        DB -> Controller: null
+        Controller -> User: 404 Not Found (profile not found)
+    end
+end
+
+== Update Profile ==
+User -> Routes: PATCH /api/users/me/profile
+Routes -> Middleware: isAuthenticated
+alt Not Authenticated
+    Middleware -> User: 401 Unauthorized
+else Authenticated
+    Routes -> Middleware: checkRole(['landlord', 'client', 'student', 'admin'])
+    alt Role Denied
+        Middleware -> User: 403 Forbidden (Access denied)
+    else Role Granted
+        Routes -> Middleware: validate(updateProfileSchema)
+        alt Validation Failed
+            Middleware -> User: 400 Bad Request (Validation failed)
+        else Validation Success
+            Middleware -> Controller: updateMyProfile(req, res)
+            alt Invalid/Empty Fields
+                Controller -> User: 404 Not Found (Invalid update fields)
+            else Valid Fields
+                Controller -> DB: findByIdAndUpdate(userId, updates)
+                alt Profile Updated
+                    DB -> Controller: updated user
+                    Controller -> User: 200 OK (updated profile)
+                else Profile Not Found/Updated
+                    DB -> Controller: null
+                    Controller -> User: 404 Not Found (Profile not updated)
+                end
+            end
+        end
+    end
+end
+
+== Get All Users (Admin Only) ==
+User -> Routes: GET /api/users
+Routes -> Middleware: isAuthenticated
+alt Not Authenticated
+    Middleware -> User: 401 Unauthorized
+else Authenticated
+    Routes -> Middleware: checkRole(['admin'])
+    alt Role Denied
+        Middleware -> User: 403 Forbidden
+    else Role Granted
+        Middleware -> Controller: getUsers(req, res)
+        Controller -> DB: find()
+        alt Users Found
+            DB -> Controller: users list
+            Controller -> User: 200 OK (list of users)
+        else Database Error
+            DB -> Controller: error
+            Controller -> User: 500 Internal Server Error
+        end
+    end
+end
+
+== Get User By ID (Admin Only) ==
+User -> Routes: GET /api/users/:id
+Routes -> Middleware: isAuthenticated
+alt Not Authenticated
+    Middleware -> User: 401 Unauthorized
+else Authenticated
+    Routes -> Middleware: checkRole(['admin'])
+    alt Role Denied
+        Middleware -> User: 403 Forbidden
+    else Role Granted
+        Middleware -> Controller: getUserById(req, res)
+        Controller -> DB: findById(id)
+        alt User Found
+            DB -> Controller: user object
+            Controller -> User: 200 OK (user data)
+        else User Not Found
+            DB -> Controller: null
+            Controller -> User: 404 Not Found
+        end
+    end
+end
+
+== Delete User (Admin Only) ==
+User -> Routes: DELETE /api/users/:id
+Routes -> Middleware: isAuthenticated
+alt Not Authenticated
+    Middleware -> User: 401 Unauthorized
+else Authenticated
+    Routes -> Middleware: checkRole(['admin'])
+    alt Role Denied
+        Middleware -> User: 403 Forbidden
+    else Role Granted
+        Middleware -> Controller: deleteUser(req, res)
+        Controller -> DB: findByIdAndDelete(userId)
+        alt User Deleted
+            DB -> Controller: deleted user
+            Controller -> User: 200 OK (success message)
+        else User Not Found/Error
+            DB -> Controller: null/error
+            Controller -> User: 500 Internal Server Error
+        end
+    end
+end
+
+== Promote User (Admin Only) ==
+User -> Routes: PATCH /api/users/:id/promote
+Routes -> Middleware: isAuthenticated
+alt Not Authenticated
+    Middleware -> User: 401 Unauthorized
+else Authenticated
+    Routes -> Middleware: checkRole(['admin'])
+    alt Role Denied
+        Middleware -> User: 403 Forbidden
+    else Role Granted
+        Middleware -> Controller: promoteUser(req, res)
+        alt Role Not Provided / Invalid Role
+            Controller -> User: 404 Not Found (Invalid role)
+        else Valid Role
+            Controller -> DB: findByIdAndUpdate(userId, { role })
+            alt User Found
+                DB -> Controller: updated user
+                Controller -> User: 200 OK (role changed message)
+            else User Not Found
+                DB -> Controller: null
+                Controller -> User: 404 Not Found
+            end
+        end
+    end
+end
+
+@enduml
