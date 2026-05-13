@@ -1,6 +1,7 @@
 import express from 'express';
 import * as bookingController from '../controllers/houseBookingController.mjs';
-import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
+import { authenticateJWT as isAuthenticated } from '../middleware/authMiddleware.mjs';
+import { checkRole } from '../middleware/roleMiddleware.mjs';
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
 import { createBookingSchema } from '../validators/createBookingSchema.mjs';
 import { updateBookingSchema } from '../validators/updateBookingSchema.mjs';
@@ -10,7 +11,7 @@ const houseBookingRoutes = express.Router();
 houseBookingRoutes.get(
   '/',
   isAuthenticated,
-  checkRole('Admin'),
+  checkRole('admin'),
   bookingController.getBookings,
 );
 
