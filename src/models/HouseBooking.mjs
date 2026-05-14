@@ -103,11 +103,10 @@ const houseBookingSchema = new Schema(
 );
 
 // Pre-save middleware to keep status and isPaid in sync
-houseBookingSchema.pre('save', function (next) {
+houseBookingSchema.pre('save', function () {
   if (this.isPaid) {
     this.status = this.status === 'pending' ? 'confirmed' : this.status;
   }
-  next();
 });
 
 const HouseBooking = model('HouseBooking', houseBookingSchema);

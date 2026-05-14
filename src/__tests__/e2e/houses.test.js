@@ -4,6 +4,15 @@ import HouseListing from "../../models/HouseListing.mjs";
 
 jest.mock("../../models/HouseListing.mjs");
 
+jest.mock("../../middleware/authMiddleware.mjs", () => ({
+  isAuthenticated: jest.fn((req, res, next) => {
+    req.user = { _id: "6a057ca99d9d0fbeb233073d", role: "admin" };
+    next();
+  }),
+  checkRole: () => (req, res, next) => next(),
+}));
+
+
 describe("House Listing API", () => {
 
   afterEach(() => {
@@ -25,7 +34,8 @@ describe("House Listing API", () => {
       const res = await request(app).get("/api/house-listing");
 
       expect(res.statusCode).toBe(200);
-      expect(res.body).toEqual(mockHouses);
+      expect(res.body.status).toBe("success");
+      expect(res.body.data).toEqual(mockHouses);
     });
 
     it("should handle errors", async () => {
@@ -43,7 +53,11 @@ describe("House Listing API", () => {
   describe("POST /api/house-listing", () => {
 
     it("should create a new house", async () => {
-      const newHouse = { title: "New House" };
+      const newHouse = { 
+        title: "New House",
+        price: 1000,
+        costCategory: "Medium_Cost"
+      };
 
       HouseListing.mockImplementation(() => ({
         save: jest.fn().mockResolvedValue(newHouse)
@@ -54,7 +68,8 @@ describe("House Listing API", () => {
         .send(newHouse);
 
       expect(res.statusCode).toBe(201);
-      expect(res.body).toEqual(newHouse);
+      expect(res.body.status).toBe("success");
+      expect(res.body.data).toEqual(newHouse);
     });
 
     it("should handle validation errors", async () => {
