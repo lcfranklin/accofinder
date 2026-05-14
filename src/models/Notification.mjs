@@ -1,20 +1,18 @@
 import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema({
-  recipient: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+  userId: {
+    type: String,
     required: true,
   },
   type: {
     type: String,
-    enum: ['Email', 'InApp', 'SMS'],
+    enum: ['Email', 'InApp', 'SMS', 'info', 'warning', 'error'],
     default: 'Email',
     required: true,
   },
   title: {
     type: String,
-    required: true,
   },
   message: {
     type: String,

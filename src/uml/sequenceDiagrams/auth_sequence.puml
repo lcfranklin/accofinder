@@ -1,0 +1,117 @@
+@startuml Auth Sequence Diagram
+
+actor User
+participant "Auth Routes" as Routes
+participant "Auth Controller" as Controller
+participant "Auth Middleware" as Middleware
+participant "Passport (Local Strategy)" as Passport
+participant "JWT Utility" as JWT
+database "MongoDB" as DB
+
+== Registration ==
+User -> Routes: POST /api/auth/register
+Routes -> Middleware: validate(registerUserSchema)
+alt Validation Failed
+    Middleware -> User: 400 Bad Request (Validation failed)
+else Validation Success
+    Middleware -> Controller: registerUser(req, res)
+    alt Passwords Mismatch
+        Controller -> User: 400 Bad Request (password and confirmPassword do not match)
+    else Passwords Match
+        Controller -> DB: findOne({ email })
+        alt User Already Exists
+            DB -> Controller: user object
+            Controller -> User: 400 Bad Request (User already exists)
+        else New User
+            DB -> Controller: null
+            Controller -> DB: create({ name, email,residentialAddress, password, role: 'client' })
+            DB -> Controller: user object
+            Controller -> Controller: req.login(user)
+            Controller -> JWT: generateAccessToken(user)
+            Controller -> JWT: generateRefreshToken(user)
+            Controller -> User: 201 Created (tokens + user data)
+        end
+    end
+end
+
+== Login ==
+User -> Routes: POST /api/auth/login
+Routes -> Middleware: validate(loginUserSchema)
+alt Validation Failed
+    Middleware -> User: 400 Bad Request
+else Validation Success
+    Middleware -> Controller: loginUser(req, res)
+    Controller -> Passport: authenticate('local')
+    Passport -> DB: findOne({ email })
+    alt Authentication Success
+        DB -> Passport: user object (password matches)
+        Passport -> Controller: user object
+        Controller -> Controller: req.login(user)
+        Controller -> JWT: generateAccessToken(user)
+        Controller -> JWT: generateRefreshToken(user)
+        Controller -> User: 200 OK (tokens + user data)
+    else Authentication Failed
+        DB -> Passport: null / wrong password
+        Passport -> Controller: info message
+        Controller -> User: 401 Unauthorized (Login failed)
+    end
+end
+
+== Logout ==
+User -> Routes: POST /api/auth/logout
+Routes -> Controller: logoutUser(req, res)
+Controller -> Controller: req.logout()
+Controller -> Controller: req.session.destroy()
+Controller -> User: 200 OK (Logged out successfully)
+
+== Refresh Token ==
+User -> Routes: POST /api/auth/refresh
+Routes -> Controller: refreshAccessToken(req, res)
+alt Refresh Token Missing
+    Controller -> User: 400 Bad Request (Refresh token is required)
+else Refresh Token Provided
+    Controller -> JWT: verifyRefreshToken(token)
+    alt Token Invalid / Expired
+        JWT -> Controller: error
+        Controller -> User: 401 Unauthorized (Invalid or expired refresh token)
+    else Token Valid
+        JWT -> Controller: decoded payload
+        Controller -> DB: findById(userId)
+        alt User Found
+            DB -> Controller: user object
+            Controller -> JWT: generateAccessToken(user)
+            Controller -> User: 200 OK (new accessToken)
+        else User Not Found
+            DB -> Controller: null
+            Controller -> User: 401 Unauthorized (User not found)
+        end
+    end
+end
+
+== Get Current User Profile (Auth Check) ==
+User -> Routes: GET /api/auth/me
+Routes -> Middleware: isAuthenticated
+alt Not Authenticated
+    Middleware -> User: 401 Unauthorized (Not authenticated)
+else Authenticated
+    Middleware -> Controller: getMe(req, res)
+    Controller -> User: 200 OK (user profile data)
+end
+
+== Google OAuth ==
+User -> Routes: GET /api/auth/google
+Routes -> Passport: authenticate('google')
+User -> Passport: Login with Google
+Passport -> User: Redirect to Google Auth
+
+== Google OAuth Callback ==
+User -> Routes: GET /api/auth/callback/google
+Routes -> Passport: authenticate('google')
+alt Google Auth Success
+    Passport -> Controller: googleCallback(req, res)
+    Controller -> User: 200 OK (user data)
+else Google Auth Failure
+    Passport -> User: 302 Redirect to /login
+end
+
+@enduml

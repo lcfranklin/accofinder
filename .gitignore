@@ -48,7 +48,6 @@ typings/
 .yarn-integrity
 
 .env
-.env.test
 .cache
 
 .next

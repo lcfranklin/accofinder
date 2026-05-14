@@ -1,41 +1,49 @@
-import User from '../models/User.mjs';
-import dotenv from "dotenv"
-import { verifyAccessToken } from '../utils/jwt.mjs';
+import { sendResponse } from '../utils/helpers.mjs';
+import passport from 'passport';
 
-dotenv.config();
+/**
+ * Intelligent Middleware to check if the user is authenticated.
+ * It first checks for a valid session (Web).
+ * If no session is found, it falls back to checking for a Bearer JWT (Mobile/API).
+ */
+export const isAuthenticated = (req, res, next) => {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    console.log('--- Auth Check: Session Authenticated ---');
+    console.log('User ID:', req.user._id);
+    return next();
+  }
 
-export const authenticateJWT = async (req, res, next) => {
-  let token;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-
-      const decoded = verifyAccessToken(token);
-
-      const userId = decoded.sub || decoded.id;   
-
-      if (!userId) {
-        return res.status(401).json({ message: 'Not authorized, invalid token payload' });
-      }
-
-      const user = await User.findById(userId).select('-password');
-
-      if (!user) {
-        return res.status(401).json({ message: 'Not authorized, user not found' });
-      }
-
-      req.user = user;
-      console.log("User attached to request:", req.user);   
-
-      next();
-    } catch (error) {
-      console.error("JWT Error:", error.message);
-      return res.status(401).json({ message: 'Not authorized, token failed' });
+  passport.authenticate('jwt', { session: false }, (err, user, info) => {
+    if (err) {
+      console.error('JWT Auth Error:', err);
+      return next(err);
     }
-  }
 
-  if (!token) {
-    return res.status(401).json({ message: 'Not authorized, no token' });
-  }
+    if (user) {
+      console.log('--- Auth Check: JWT Authenticated ---');
+      console.log('User ID:', user._id);
+      req.user = user;
+      return next();
+    }
+
+    console.log('--- Auth Check: Not Authenticated ---');
+    return sendResponse(res, 401, false, 'Not authenticated, please log in');
+  })(req, res, next);
+};
+
+/**
+ * Middleware to check if the user has the required roles.
+ */
+export const checkRole = (roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return sendResponse(
+        res,
+        403,
+        false,
+        'Access denied: insufficient permissions',
+      );
+    }
+    next();
+  };
 };
