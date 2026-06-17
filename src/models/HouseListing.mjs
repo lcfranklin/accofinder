@@ -17,6 +17,11 @@ const houseSchema = new mongoose.Schema({
     enum: ['Low_Cost', 'Medium_Cost', 'High_Cost'],
     required: true,
   },
+  type: {
+    type: String,
+    enum: ['House', 'Room',],
+    default: 'House',
+  },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
