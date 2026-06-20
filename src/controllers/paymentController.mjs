@@ -1,81 +1,87 @@
-import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import paychangu from '@api/paychangu';
 import HouseBooking from '../models/HouseBooking.mjs';
-import { pcFetch } from '../utils/helpers.mjs';
 import Payment from "../models/Payment.mjs";
 
-const WEbOOK_SECRET = process.env.PAYCHANGU_SECRET_KEY;
+const WEBHOOK_SECRET = process.env.PAYCHANGU_WEBHOOK_SECRET || process.env.PAYCHANGU_SECRET_KEY;
 const CUURRENCY = process.env.PAYCHANGU_CURRENCY || 'MKW';
 const BACKEND_URL = process.env.BACKEND_URL 
 const FRONTEND_URL = process.env.FRONTEND_URL
 const CALLBACK_URL = process.env.CALLBACK_URL
 
 
-export const initPayment = async (req, res) => {
-  try{
-    const {bookingId, bookingFee} = req.body;
+export const initPayment = async (req, res, next) => {
+  try {
+    const { bookingId, bookingFee, mobile, mobile_money_operator_ref_id } = req.body;
     const clientId = req.user._id;
 
-    const amount = bookingFee;
-    tx_ref = `PS_${findBookingData._id}_${Date.now()}`;
-
-    if(!bookingId || !bookingFee){
+    if (!bookingId || !bookingFee || !mobile || !mobile_money_operator_ref_id) {
       return res.status(400).json({
         status: "failed",
-        message: "Booking ID and bookingFee required"
+        message: "bookingId, bookingFee, mobile, and mobile_money_operator_ref_id are required"
       });
     }
 
-    const findBookingData = await HouseBooking.findById(bookingId)
-      .populate({
-        path: "client",
-        populate:{
-          path: "House",
-        }
-      });
+    const findBookingData = await HouseBooking.findById(bookingId).populate('tenant');
 
-    if(!findBookingData){
+    if (!findBookingData) {
       return res.status(404).json({
         status: "failed",
         message: "Booking not found"
       });
-    } 
-    if(String(clientId)!== String(findBookingData.client._id)){ 
+    }
+
+    if (String(clientId) !== String(findBookingData.tenant._id)) {
       return res.status(403).json({
         status: "failed",
         message: "Unauthorized to make payment for this booking"
       });
     }
 
+    const amount = bookingFee;
+    const tx_ref = `PS_${findBookingData._id}_${Date.now()}`;
+
+    const firstName = findBookingData.tenant?.name?.firstName || "Client";
+    const surname = findBookingData.tenant?.name?.surname || "User";
+    const email = findBookingData.tenant?.email || "email@example.com";
+
     const payload = {
       amount: String(amount),
-      currency: CUURRENCY,
-      tx_ref,
-      email: findBookingData.client?.email,
-      first_name: findBookingData.client?.firstName,
-      last_name: findBookingData.client?.lastName,
-      callback_url: CALLBACK_URL,
-      return_url: FRONTEND_URL,
-      tx_ref,
+      mobile: mobile,
+      mobile_money_operator_ref_id: mobile_money_operator_ref_id,
+      charge_id: tx_ref,
+      email: email,
+      first_name: firstName,
+      last_name: surname
     };
 
-    //calling PayChangu API
-    const response = await pcFetch("/payment",{
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+    // Calling PayChangu Direct Charge API via SDK
+    paychangu.auth(`Bearer ${process.env.PAYCHANGU_SECRET_KEY}`);
+    const { data: response } = await paychangu.chargeMobileMoney(payload);
 
-    const checkoutUrl = response?.data?.checkout_url;
-    if(!checkoutUrl) throw new Error("No checkout_url return by PayChangu") 
+    if (response?.status !== "success") {
+      return res.status(400).json({
+        status: "failed",
+        message: response?.message || "Failed to initialize mobile money payment"
+      });
+    }
 
-    //saving
+
+    // Determine the payment method
+    let paymentMethod = 'Airtel';
+    if (mobile_money_operator_ref_id === '27494cb5-ba9e-437f-a114-4e7a7686bcca') {
+      paymentMethod = 'TNM';
+    } else if (mobile_money_operator_ref_id === '20be6c20-adeb-4b5b-a7ba-0769820df4fb') {
+      paymentMethod = 'Airtel';
+    }
+
+    // Saving payment
     const newPayment = new Payment({
       client: clientId,
+      booking: findBookingData._id,
       amount: amount,
       currency: CUURRENCY,
-      paymentMethod: 'card',
+      paymentMethod: paymentMethod,
       status: 'pending',
-      paymentStatus: 'pending',
-      paymentRef: tx_ref,
       transactionId: tx_ref,
       createdAt: new Date(),
     });
@@ -84,46 +90,49 @@ export const initPayment = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Checkout session created",
-      checkout_url: checkoutUrl,
+      message: "Mobile money payment initiated successfully",
+      data: response.data,
       tx_ref,
       paymentId: newPayment._id
     });
 
-  }catch (error){
-   next(error)
- }
+  } catch (error) {
+    next(error);
+  }
 };
-//to verify payment
+
+// Verify mobile money payment status
 export const verify  =  async (req, res, next)=>{
   try{
     const {tx_ref, status} = req.query;
     if(!tx_ref){
-      return res.status(404).json({
+      return res.status(400).json({
         success: false,
         message: "tx_ref missing"
       });
     }
 
-    const verifyResponse = await pcFetch(`/verify/payment/${encodeURIComponet(tx_ref)}`,{
-      method: "GET"
-    });
+    // Verify via PayChangu SDK
+    paychangu.auth(`Bearer ${process.env.PAYCHANGU_SECRET_KEY}`);
+    const { data: verifyResponse } = await paychangu.verifyMobileMoneyPayment({ chargeId: tx_ref });
 
     const isSuccess = verifyResponse?.status === "success" && verifyResponse?.data?.status === "success";
     const amount = verifyResponse?.data?.amount;
     const currency = verifyResponse?.data?.currency;
 
-    const foundPayment = await Payment.findOne({paymentRef: tx_ref});
+    const foundPayment = await Payment.findOne({ transactionId: tx_ref });
 
     if (foundPayment){
       if(isSuccess){
-        //verifying the amount payed via PayChangu
+        //verifying the amount paid via PayChangu
         if(Number(foundPayment.amount) === Number(amount) && currency===CUURRENCY){
           foundPayment.status = "completed";
           foundPayment.paidAt = new Date();
         } else{
           foundPayment.status = "failed"
         }
+      } else {
+        foundPayment.status = "failed";
       }
       if(verifyResponse?.data?.transaction_id){
         foundPayment.transactionId = verifyResponse.data.transaction_id;
@@ -132,21 +141,25 @@ export const verify  =  async (req, res, next)=>{
       await foundPayment.save();
 
       if(isSuccess && foundPayment.status === "completed"){
-        //option 1. if booking references are stored in payment
         if(foundPayment.booking){
-          await HouseBooking.findOneAndUpdate(
-            {client: foundPayment.client},
-            {paymentStatus: "completed"},
-            {new: true},
+          await HouseBooking.findByIdAndUpdate(
+            foundPayment.booking,
+            {
+              isPaid: true,
+              paidAt: new Date(),
+              payment: foundPayment._id,
+              status: 'confirmed'
+            },
+            { new: true }
           );
         }
       }
     }
-    // choose either Json or  redirect
+    // choose either Json or redirect
     if(req.headers['content-type'] === 'application/json'||
        req.headers['accept']?.includes('application/json')){
       return res.status(200).json({
-        sucess: isSuccess,
+        success: isSuccess,
         verification: verifyResponse,
         payment: foundPayment
       });
@@ -154,7 +167,7 @@ export const verify  =  async (req, res, next)=>{
       //redirect for browser requests
       const dest = isSuccess
         ? `${FRONTEND_URL}/payment/success?tx_ref=${encodeURIComponent(tx_ref)}`
-        : `${FRONT_URL}/payment/failed?tx_ref=${encodeURIComponent(tx_ref)} &status=${encodeURIComponet(status || "failed")}`
+        : `${FRONTEND_URL}/payment/failed?tx_ref=${encodeURIComponent(tx_ref)}&status=${encodeURIComponent(status || "failed")}`
       
       return res.status(200).json({
         redirectURL: dest
@@ -169,13 +182,17 @@ export const verify  =  async (req, res, next)=>{
 //webhook logic
 export const webhookHandler = async(req, res, next) => {
   try{
-      // Verify signature (HMAC-SHA256 of raw body using WEBHOOK_SECRET), header name: 'Signature'
-    /**this is was ensipired from pychangu documentation */
+    // Verify signature (HMAC-SHA256 of raw body using WEBHOOK_SECRET), header name: 'Signature'
     const signatureHeader = req.header("Signature") || "";
     const raw = req.body;
-    if(WEBHOOK_SECRET){
+    
+    if(!WEBHOOK_SECRET){
       console.log("No PAYCHANGU_WEBHOOK_SECRET configured");
-      return res.json(400).send("No webhook secret configured");
+      return res.status(400).send("No webhook secret configured");
+    }
+
+    if (!raw) {
+      return res.status(400).send("Empty body");
     }
 
     const crypto = await import("crypto");
@@ -186,14 +203,53 @@ export const webhookHandler = async(req, res, next) => {
     }
 
     //Parse JSON after signature check
-    const event = JSON.parse(raw.toString("utf8"));
+    const event = JSON.parse(Buffer.isBuffer(raw) ? raw.toString("utf8") : raw);
 
-
-    // Example shapes (see docs), we care about tx_ref & status
-    const txRef = event?.data?.tx_ref || event?.tx_ref;
+    // We care about tx_ref & status (direct charge uses charge_id / tx_ref)
+    const txRef = event?.data?.tx_ref || event?.tx_ref || event?.data?.charge_id || event?.charge_id;
     const status = event?.data?.status || event?.status;
+    const amount = event?.data?.amount || event?.amount;
+    const currency = event?.data?.currency || event?.currency;
 
-    if (!txRef) return res.status(200).send("ok"); // nothing to do
+    if (!txRef) {
+      return res.status(200).send("ok"); // nothing to do
+    }
+
+    const foundPayment = await Payment.findOne({ transactionId: txRef });
+    if (foundPayment) {
+      const isSuccess = status === "success" || status === "completed";
+      if (isSuccess) {
+        if (Number(foundPayment.amount) === Number(amount) && currency === CUURRENCY) {
+          foundPayment.status = "completed";
+          foundPayment.paidAt = new Date();
+        } else {
+          foundPayment.status = "failed";
+        }
+      } else {
+        foundPayment.status = "failed";
+      }
+
+      if (event?.data?.transaction_id || event?.transaction_id) {
+        foundPayment.transactionId = event.data.transaction_id || event.transaction_id;
+      }
+
+      await foundPayment.save();
+
+      if (isSuccess && foundPayment.status === "completed" && foundPayment.booking) {
+        await HouseBooking.findByIdAndUpdate(
+          foundPayment.booking,
+          {
+            isPaid: true,
+            paidAt: new Date(),
+            payment: foundPayment._id,
+            status: 'confirmed'
+          },
+          { new: true }
+        );
+      }
+    }
+
+    return res.status(200).send("ok");
 
   } catch(error){
     next(error)
@@ -215,10 +271,15 @@ export const getPaymentsByUser = async(req, res, next) => {
     const payments = await Payment.find(filter)
       .populate({
         path: 'client',
-        select: 'firstNam lastName email'
+        select: 'name email'
       })
-      .sort({createAt: -1}) // getting newest first
-      .lean({});
+      .sort({ createdAt: -1 }) // getting newest first
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      data: payments
+    });
 
   }catch(error){
     next(error)

@@ -10,6 +10,7 @@
     "start": "node ./src/index.mjs"
   },
   "dependencies": {
+    "@api/paychangu": "file:.api/apis/paychangu",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "connect-mongo": "^6.0.0",

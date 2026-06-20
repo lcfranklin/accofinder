@@ -8,6 +8,11 @@ const paymentSchema = new Schema({
         ref: 'User',
         required: true
     },
+    booking: {
+        type: Types.ObjectId,
+        ref: 'HouseBooking',
+        required: true
+    },
     
     amount: {
         type: Number,
