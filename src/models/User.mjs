@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv'
+import { UserRole } from './enums/UserRole.mjs';
+
 dotenv.config();
 
 const userSchema = new mongoose.Schema({
@@ -13,6 +15,10 @@ const userSchema = new mongoose.Schema({
       type: String,
       required: true,
     }
+  },
+  profileImage: {
+    type: String,
+    default: null
   },
   email: {
     type: String,
@@ -29,6 +35,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: function() { return !this.googleId; },
   },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
   googleId: {
     type: String,
     unique: true,
@@ -36,7 +50,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['agent', 'landlord', 'client', 'student', 'admin'],
+    enum: Object.values(UserRole),
     required: true,
   },
   createdAt: {
@@ -61,6 +75,28 @@ userSchema.pre('save', async function() {
     console.log("Error", error);
   }
 });
+
+// Indexes
+// userSchema.index({ email: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ isActive: 1 });
+
+// Virtual for full name
+userSchema.virtual('fullName').get(function() {
+  return `${this.firstName} ${this.lastName}`;
+});
+
+userSchema.methods.isLandlord = function() {
+  return this.role === UserRole.LANDLORD;
+};
+
+userSchema.methods.isAgent = function() {
+  return this.role === UserRole.AGENT;
+};
+
+userSchema.methods.isStudent = function() {
+  return this.role === UserRole.STUDENT;
+};
 
 const User = mongoose.model('User', userSchema);
 export default User;
