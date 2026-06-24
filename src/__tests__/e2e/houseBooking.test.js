@@ -38,6 +38,7 @@ describe('House Booking API E2E', () => {
       });
     adminToken = adminRes.body.data.accessToken;
     adminUser = adminRes.body.data;
+    await User.findByIdAndUpdate(adminUser._id, { role: 'admin' });
 
     // Create client user
     const clientRes = await request(app)
@@ -90,7 +91,7 @@ describe('House Booking API E2E', () => {
       title: 'Test House',
       description: 'A beautiful test house',
       price: 500,
-      costCategory: 'monthly',
+      costCategory: 'Low_Cost',
       owner: landlordUser._id,
       location: 'Test Location'
     });
@@ -145,6 +146,7 @@ describe('House Booking API E2E', () => {
           specialNotes: 'Test booking notes'
         });
 
+      if (res.statusCode !== 201) console.log('201 test failed:', res.body);
       expect(res.statusCode).toBe(201);
       expect(res.body.status).toBe('success');
       expect(res.body.data).toHaveProperty('house');
@@ -162,15 +164,21 @@ describe('House Booking API E2E', () => {
     });
 
     it('should return 404 when house not found', async () => {
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() + 1);
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + 1);
+
       const res = await request(app)
         .post('/api/house-booking')
         .set('Authorization', `Bearer ${clientToken}`)
         .send({
           houseId: '507f1f77bcf86cd799439011',
-          startDate: new Date().toISOString(),
-          endDate: new Date().toISOString()
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
         });
 
+      if (res.statusCode !== 404) console.log('404 test failed:', res.body);
       expect(res.statusCode).toBe(404);
       expect(res.body.message).toBe('House not found');
     });
@@ -180,6 +188,8 @@ describe('House Booking API E2E', () => {
     let testBooking;
 
     beforeEach(async () => {
+      await HouseBooking.deleteMany({});
+      
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() + 1);
       const endDate = new Date(startDate);
