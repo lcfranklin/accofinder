@@ -1,0 +1,204 @@
+@startuml
+title "AccoFinder - Evolved Property & Booking Architecture"
+
+'========================
+' ENUMS
+'========================
+
+enum UserRole {
+  STUDENT
+  CITIZEN
+  AGENT
+  LANDLORD
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum BookingType {
+  WHOLE_PROPERTY
+  ROOM
+  BED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  CANCELLED
+}
+
+'========================
+' CORE ENTITIES
+'========================
+
+entity User {
+  - id: ObjectId
+  - role: UserRole
+}
+
+entity Property {
+  - id: ObjectId
+  - title: String
+  - description: String
+  - owner: User
+  - district: String
+  - village: String
+  - verificationStatus: VerificationStatus
+}
+
+note top of Property
+  <b>Property (Root Listing)</b>
+
+  Top-level listing container.
+  Not directly rentable.
+  Contains:
+  - Houses
+  - Hostels
+  - Standalone Rooms
+end note
+
+'========================
+' STRUCTURE LAYER
+'========================
+
+entity House {
+  - id: ObjectId
+}
+
+note left of House
+  <b>House</b>
+  Grouping unit under Property.
+  Can be rented as a whole OR
+  contain rooms (optional depending on usage).
+end note
+
+entity Hostel {
+  - id: ObjectId
+  - name: String
+}
+
+note right of Hostel
+  <b>Hostel</b>
+  Structure container.
+  Contains multiple rooms.
+end note
+
+entity Room {
+  - id: ObjectId
+  - roomName: String
+  - capacity: Integer
+  - roomMonthlyRent: Double
+  - roomBookingFee: Double
+}
+
+note left of Room
+  <b>Room</b>
+
+  Can be:
+  - standalone (under Property)
+  - inside Hostel
+
+  Capacity:
+  1 = Single
+  2 = Double
+  3 = Triple
+end note
+
+entity Bed {
+  - id: ObjectId
+  - bedNumber: String
+  - isAvailable: Boolean
+  - bedMonthlyRent: Double
+  - bedBookingFee: Double
+}
+
+note left of Bed
+  <b>Bed</b>
+  Lowest rentable unit.
+  Belongs to a Room.
+end note
+
+'========================
+' RENTABLE ABSTRACTION
+'========================
+
+abstract RentableUnit {
+  - id: ObjectId
+  - monthlyRent: Double
+  - bookingFee: Double
+  - isAvailable: Boolean
+}
+
+note top of RentableUnit
+  <b>RentableUnit</b>
+
+  Anything that can be booked:
+  - House
+  - Room
+  - Bed
+end note
+
+'========================
+' BOOKING + PAYMENT
+'========================
+
+entity Booking {
+  - id: ObjectId
+  - tenant: User
+  - rentableUnit: RentableUnit
+  - startDate: Date
+  - endDate: Date
+  - bookingFee: Double
+  - totalRentAmount: Double
+  - isBookingFeePaid: Boolean
+  - isFullRentPaid: Boolean
+  - status: BookingStatus
+}
+
+entity Payment {
+  - id: ObjectId
+  - amount: Double
+  - status: String
+}
+
+'========================
+' RELATIONSHIPS
+'========================
+
+' Users
+Property "*" --> "1" User : owner
+Booking "*" --> "1" User : tenant
+User "*" --> "1" UserRole : role
+
+' Property structure
+Property "1" --> "*" House
+Property "1" --> "*" Hostel
+Property "1" --> "*" Room : standalone
+
+' Hostel structure
+Hostel "1" --> "*" Room
+
+' Room structure
+Room "1" --> "*" Bed
+
+' Rentable inheritance
+RentableUnit <|-- House
+RentableUnit <|-- Room
+RentableUnit <|-- Bed
+
+' Booking
+Booking "*" --> "1" RentableUnit : booked item
+Booking "1" *-- "0..1" Payment
+
+' Enums
+Property "*" --> "1" VerificationStatus
+Booking "*" --> "1" BookingStatus
+Booking "*" --> "1" BookingType
+
+right footer "AccoFinder - Final Evolved Architecture"
+
+@enduml

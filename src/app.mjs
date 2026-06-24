@@ -14,9 +14,8 @@ import notificationRoutes from './routes/notificationRoutes.mjs';
 import disputeRoutes from './routes/disputeRoutes.mjs';
 import paymentRoutes from './routes/paymentRoutes.mjs';
 import authRoutes from './routes/authRoutes.mjs';
-import houseBookingRoutes from './routes/houseBookingRoutes.mjs';
-import houseListingRoutes from './routes/houseListingRoutes.mjs';
-import uploadRoutes from "./routes/uploadRoutes.mjs";
+import houseRoutes from './routes/houseRoutes.mjs';
+import uploadRoutes from './routes/uploadRoutes.mjs'
 import { notFound, errorHandler } from './middleware/errorMiddleware.mjs';
 
 dotenv.config();
@@ -122,8 +121,8 @@ app.get('/', (req, res) => {
     `);
 });
 app.use('/api/users', userRoutes);
-app.use('/api/house-listing', houseListingRoutes);
-app.use('/api/house-booking', houseBookingRoutes);
+app.use('/api/house-listing', houseRoutes);
+app.use('/api/house-booking', houseRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);

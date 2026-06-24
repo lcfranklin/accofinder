@@ -1,5 +1,5 @@
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
-import HouseBooking from '../models/HouseBooking.mjs';
+import Booking from '../models/Booking.mjs';
 import { pcFetch } from '../utils/helpers.mjs';
 import Payment from "../models/Payment.mjs";
 
@@ -25,7 +25,7 @@ export const initPayment = async (req, res) => {
       });
     }
 
-    const findBookingData = await HouseBooking.findById(bookingId)
+    const findBookingData = await Booking.findById(bookingId)
       .populate({
         path: "client",
         populate:{
@@ -134,7 +134,7 @@ export const verify  =  async (req, res, next)=>{
       if(isSuccess && foundPayment.status === "completed"){
         //option 1. if booking references are stored in payment
         if(foundPayment.booking){
-          await HouseBooking.findOneAndUpdate(
+          await Booking.findOneAndUpdate(
             {client: foundPayment.client},
             {paymentStatus: "completed"},
             {new: true},

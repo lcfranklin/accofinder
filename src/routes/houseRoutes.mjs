@@ -1,33 +1,33 @@
 import express from 'express';
-import * as houseController from '../controllers/houseListingController.mjs';
+import * as houseController from '../controllers/houseController.mjs';
 import { checkRole, isAuthenticated } from '../middleware/authMiddleware.mjs';
 import { createHouseSchema } from '../validators/createHouseSchema.mjs';
 import { updateHouseSchema } from '../validators/updateHouseSchema.mjs';
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
 
-const houseListingRoutes = express.Router();
+const houseRoutes = express.Router();
 
-houseListingRoutes.get('/', houseController.getHouses);
-houseListingRoutes.post(
+houseRoutes.get('/', houseController.getHouses);
+houseRoutes.post(
   '/',
   isAuthenticated,
   checkRole(['admin', 'landlord']),
   validateRequest(createHouseSchema),
   houseController.createHouse,
 );
-houseListingRoutes.get('/:id', houseController.getHouseById);
-houseListingRoutes.put(
+houseRoutes.get('/:id', houseController.getHouseById);
+houseRoutes.put(
   '/:id',
   isAuthenticated,
   checkRole(['admin', 'landlord']),
   validateRequest(updateHouseSchema),
   houseController.updateHouse,
 );
-houseListingRoutes.delete(
+houseRoutes.delete(
   '/:id',
   isAuthenticated,
   checkRole(['admin', 'landlord']),
   houseController.deleteHouse,
 );
 
-export default houseListingRoutes;
+export default houseRoutes;

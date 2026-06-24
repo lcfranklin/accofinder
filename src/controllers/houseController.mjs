@@ -1,13 +1,9 @@
-import mongoose from 'mongoose';
-import HouseListing from '../models/HouseListing.mjs';
+import House from "../models/House.mjs";
 
 export const getHouses = async (req, res, next) => {
   try {
-    const houses = await HouseListing.find().populate('owner');
-    res.status(200).json({
-      status: 'success',
-      data: houses,
-    });
+    const houses = await House.find().populate('owner');
+    res.status(200).json(houses);
   } catch (error) {
     next(error);
   }
@@ -15,12 +11,8 @@ export const getHouses = async (req, res, next) => {
 
 export const createHouse = async (req, res, next) => {
   try {
-    const house = new HouseListing({ ...req.body, owner: req.user._id });
-    const savedHouse = await house.save();
-    res.status(201).json({
-      status: 'success',
-      data: savedHouse,
-    });
+    const savedHouse = await new House(req.body).save();
+    res.status(201).json(savedHouse);
   } catch (error) {
     next(error);
   }

@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
-import HouseBooking from '../models/HouseBooking.mjs';
-import HouseListing from '../models/HouseListing.mjs';
+import Booking from '../models/Booking.mjs';
 
 const populateBooking = (query) =>
   query
@@ -15,11 +14,44 @@ const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 // GET /bookings — admin only
 export const getBookings = async (req, res, next) => {
   try {
-    const bookings = await populateBooking(HouseBooking.find());
+    const bookings = await Booking.find();
+    if (!bookings) {
+      return res.status(500).json({
+        status: 'fail',
+        message: 'Failed to fetch bookings',
+      });
+    }
+
+    if (bookings.length === 0) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'No bookings available',
+      });
+    }
+
     res.status(200).json({
       status: 'success',
-      results: bookings.length,
-      data: bookings,
+      bookings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createBook = async (req, res, next) => {
+  try {
+    const booking = new Booking(req.body);
+    const savedBooking = await booking.save();
+
+    if (!savedBooking) {
+      return res.status(500).json({
+        status: 'fail',
+        message: 'failed to create booking',
+      });
+    }
+    res.status(202).json({
+      status: 'success',
+      data: savedBooking,
     });
   } catch (error) {
     next(error);
@@ -38,7 +70,7 @@ export const getBookingById = async (req, res, next) => {
   }
 
   try {
-    const booking = await populateBooking(HouseBooking.findById(id));
+    const booking = await Booking.findById(bookId);
     if (!booking) {
       return res.status(404).json({
         status: 'fail',
@@ -69,12 +101,9 @@ export const getBookingById = async (req, res, next) => {
 // POST /bookings — any authenticated user
 export const createBooking = async (req, res, next) => {
   try {
-    const { houseId, startDate, endDate, specialNotes } = req.body;
-    const tenantId = req.user._id;
-
-    const house = await HouseListing.findById(houseId);
-    if (!house) {
-      return res.status(404).json({
+    const deletedBooking = await Booking.findByIdAndDelete(bookingId);
+    if (!deletedBooking) {
+      return res.status(500).json({
         status: 'fail',
         message: 'House not found',
       });
@@ -162,9 +191,14 @@ export const updateBooking = async (req, res, next) => {
   }
 
   try {
-    const booking = await HouseBooking.findById(id);
-    if (!booking) {
-      return res.status(404).json({
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      req.body,
+      { new: true },
+    );
+
+    if (!updatedBooking) {
+      return res.status(500).json({
         status: 'fail',
         message: `Booking with id ${id} not found`,
       });

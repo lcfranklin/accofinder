@@ -1,5 +1,5 @@
 import Dispute from '../models/Dispute.mjs';
-import HouseBooking from '../models/HouseBooking.mjs';
+import Booking from '../models/Booking.mjs';
 import Payment from '../models/Payment.mjs'; 
 import { isAuthenticated} from '../middleware/authMiddleware.mjs';
 
@@ -42,7 +42,7 @@ export const createDispute = async (req, res) => {
 
     // const reporterId = req.user._id;
 
-    // const booking = await HouseBooking.findById(bookingId)
+    // const booking = await Booking.findById(bookingId)
     // if(!booking){
     //   return res.status(404).json({
     //     status: "failed",
@@ -103,7 +103,7 @@ export const resolveDispute = async (req, res) => {
 
     //updating the Dispute status
     dispute.status = "closed";
-    await HouseBooking.findByIdAndUpdate(dispute.booking._id, {status: "cancelled"});
+    await Booking.findByIdAndUpdate(dispute.booking._id, {status: "cancelled"});
 
   }catch (error) {
     next(error);
