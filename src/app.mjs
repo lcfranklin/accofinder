@@ -16,6 +16,9 @@ import paymentRoutes from './routes/paymentRoutes.mjs';
 import authRoutes from './routes/authRoutes.mjs';
 import houseRoutes from './routes/houseRoutes.mjs';
 import { notFound, errorHandler } from './middleware/errorMiddleware.mjs';
+import bedRoutes from './routes/bedRoutes.mjs';
+import roomRoutes from './routes/roomRoutes.mjs';
+import propertyRoutes from './routes/propertyRoutes.mjs';
 
 dotenv.config();
 
@@ -44,6 +47,9 @@ app.use(passport.session());
 app.use('/api/users', userRoutes);
 app.use('/api/house-listing', houseRoutes);
 app.use('/api/house-booking', houseRoutes);
+app.use('/api/property', propertyRoutes)
+app.use('/api/room', roomRoutes)
+app.use('/api/bed', bedRoutes)
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);

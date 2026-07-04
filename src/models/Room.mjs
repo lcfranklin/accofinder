@@ -2,9 +2,8 @@ import mongoose from 'mongoose';
 import RentableUnit from './RentableUnit.mjs';
 
 const roomSchema = new mongoose.Schema({
-  roomName: {
+  roomNumber: {
     type: String,
-    required: true,
     trim: true
   },
   description: {
@@ -45,10 +44,6 @@ const roomSchema = new mongoose.Schema({
   isAvailable: {
     type: Boolean,
     default: true
-  },
-  roomNumber: {
-    type: String,
-    trim: true
   },
   floorNumber: {
     type: Number,

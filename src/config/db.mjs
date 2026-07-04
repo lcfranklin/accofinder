@@ -36,7 +36,7 @@ export const createAdmin = async () => {
     try {
         const existingAdmin = await User.findOne({ role: "admin" })
         if (existingAdmin) {
-        console.log(" admin already exists")
+        console.log(" admin already exists: ", existingAdmin)
         return
         }
 

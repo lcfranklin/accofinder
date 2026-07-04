@@ -1,5 +1,5 @@
-const mongoose = require('mongoose');
-const VerificationStatus = require('./enums/VerificationStatus');
+import mongoose from 'mongoose';
+import { VerificationStatus } from './enums/VerificationStatus.mjs';
 
 const propertySchema = new mongoose.Schema({
     title: {

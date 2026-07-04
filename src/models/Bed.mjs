@@ -30,10 +30,6 @@ const bedSchema = new mongoose.Schema({
         type: String,
         enum: ['SINGLE', 'DOUBLE', 'BUNK_TOP', 'BUNK_BOTTOM'],
         default: 'SINGLE'
-    },
-    position: {
-        type: String,
-        trim: true
     }
 }, {
     timestamps: true
