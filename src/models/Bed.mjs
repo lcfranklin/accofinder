@@ -88,11 +88,5 @@ bedSchema.methods.releaseBed = async function() {
     return this;
 };
 
-// Pre-save middleware
-bedSchema.pre('save', function(next) {
-    this.bookingFee = this.monthlyRent * 0.1; // 10% booking fee
-    next();
-});
-
 const Bed = mongoose.models.Bed || RentableUnit.discriminator('Bed', bedSchema);
 export default Bed;

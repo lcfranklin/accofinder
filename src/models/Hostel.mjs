@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
+import RentableUnit from "./RentableUnit.mjs";
 
-export default hostelSchema = new mongoose.Schema({
+const hostelSchema = new mongoose.Schema({
     property: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Property',
@@ -14,6 +15,10 @@ export default hostelSchema = new mongoose.Schema({
     description: {
         type: String,
         trim: true
+    },
+    gender:{
+        type: String,
+        enum: ['male', 'female', 'mixed'],
     },
     totalRooms: {
         type: Number,
@@ -75,4 +80,5 @@ hostelSchema.methods.getTotalAvailableBeds = async function() {
     return totalBeds;
 };
 
-mongoose.model('Hostel', hostelSchema);
+const Hostel = mongoose.model.Hostel || RentableUnit.discriminator('Hostel', hostelSchema);
+export default Hostel;

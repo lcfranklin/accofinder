@@ -107,25 +107,5 @@ roomSchema.methods.updateAvailability = async function() {
   }
 };
 
-// Pre-save middleware
-roomSchema.pre('save', function(next) {
-  this.bookingFee = this.monthlyRent * 0.1; // 10% booking fee
-  next();
-});
-
-// Validate that room belongs to either property, hostel, or house
-roomSchema.pre('validate', function(next) {
-  const hasParent = this.property || this.hostel || this.house;
-  if (!hasParent) {
-    next(new Error('Room must belong to either a Property, Hostel, or House'));
-    return;
-  }
-  if ((this.property && this.hostel) || (this.property && this.house) || (this.hostel && this.house)) {
-    next(new Error('Room cannot belong to more than one parent container'));
-    return;
-  }
-  next();
-});
-
 const Room = mongoose.models.Room || RentableUnit.discriminator('Room', roomSchema);
 export default Room;

@@ -47,3 +47,9 @@ export const createProperty = asyncHandler(async (req, res, next)=>{
     if(!property) sendResponse(res, 400, false, " Bad request property not created");
     sendResponse(res, 200, true, "property was created", property)
 });
+
+export const getAllProperties = asyncHandler(async (req, res, next)=>{
+    const properties = await Property.find();
+    if(!properties) sendResponse(res, 400, false, " Bad request properties not found");
+    sendResponse(res, 200, true, "properties were found", properties)
+});
