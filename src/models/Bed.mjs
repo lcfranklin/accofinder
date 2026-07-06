@@ -30,10 +30,6 @@ const bedSchema = new mongoose.Schema({
         type: String,
         enum: ['SINGLE', 'DOUBLE', 'BUNK_TOP', 'BUNK_BOTTOM'],
         default: 'SINGLE'
-    },
-    position: {
-        type: String,
-        trim: true
     }
 }, {
     timestamps: true
@@ -91,12 +87,6 @@ bedSchema.methods.releaseBed = async function() {
 
     return this;
 };
-
-// Pre-save middleware
-bedSchema.pre('save', function(next) {
-    this.bookingFee = this.monthlyRent * 0.1; // 10% booking fee
-    next();
-});
 
 const Bed = mongoose.models.Bed || RentableUnit.discriminator('Bed', bedSchema);
 export default Bed;

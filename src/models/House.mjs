@@ -90,11 +90,6 @@ houseSchema.methods.getRentableUnitData = function() {
   };
 };
 
-// Pre-save middleware
-houseSchema.pre('save', function(next) {
-  this.bookingFee = this.monthlyRent * 0.1; // 10% booking fee
-  next();
-});
 
 const House = mongoose.models.House || RentableUnit.discriminator('House', houseSchema);
 export default House;
