@@ -1,0 +1,259 @@
+  console.log
+    ◇ injected env (17) from .env // tip: ⌘ enable debugging { debug: true }
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+  console.log
+    ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+  console.log
+    ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+  console.log
+    ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+  console.log
+    ◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+  console.log
+    ◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+  console.log
+    ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+  console.log
+    ◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+  console.log
+    Connecting to test database: mongodb://127.0.0.1:27017/accofinder_test
+
+      at Object.log (jest.setup.js:18:13)
+
+  console.log
+    Test database connected
+
+      at Object.log (jest.setup.js:20:13)
+
+  console.log
+    --- Login Successful: through registration ---
+
+      at log (src/controllers/authController.mjs:33:15)
+
+  console.log
+    User ID: new ObjectId('6a057a69efe0f24fb127726a')
+
+      at log (src/controllers/authController.mjs:34:15)
+
+  console.log
+    Session ID: mq4x9KuF0BRMj9ISZHvUIBsgUKItjK-n
+
+      at log (src/controllers/authController.mjs:35:15)
+
+[0mPOST /api/auth/register [32m201[0m 532.327 ms - 771[0m
+  console.log
+    --- Login Successful: through registration ---
+
+      at log (src/controllers/authController.mjs:33:15)
+
+  console.log
+    User ID: new ObjectId('6a057a6aefe0f24fb127726e')
+
+      at log (src/controllers/authController.mjs:34:15)
+
+  console.log
+    Session ID: GF5BGpSqOAD5BcBino_BiAyFaPa5vEG9
+
+      at log (src/controllers/authController.mjs:35:15)
+
+[0mPOST /api/auth/register [32m201[0m 260.645 ms - 773[0m
+  console.log
+    --- Login Successful: through registration ---
+
+      at log (src/controllers/authController.mjs:33:15)
+
+  console.log
+    User ID: new ObjectId('6a057a6aefe0f24fb1277271')
+
+      at log (src/controllers/authController.mjs:34:15)
+
+  console.log
+    Session ID: AlGJA7a38LrAUrn5mCZasSjM487aYQcO
+
+      at log (src/controllers/authController.mjs:35:15)
+
+[0mPOST /api/auth/register [32m201[0m 279.585 ms - 775[0m
+  console.log
+    --- Auth Check: JWT Authenticated ---
+
+      at log (src/middleware/authMiddleware.mjs:23:15)
+
+  console.log
+    User ID: new ObjectId('6a057a69efe0f24fb127726a')
+
+      at log (src/middleware/authMiddleware.mjs:24:15)
+
+[0mPATCH /api/users/6a057a6aefe0f24fb1277271/promote [32m200[0m 47.193 ms - 70[0m
+  console.log
+    Test database disconnected
+
+      at Object.log (jest.setup.js:40:13)
+
+FAIL src/__tests__/e2e/houseBooking.test.js (5.48 s)
+  House Booking API E2E
+    GET /api/house-booking
+      ✕ should return 401 when not authenticated (5 ms)
+      ✕ should return 403 when user is not admin (1 ms)
+      ✕ should return all bookings for admin (1 ms)
+    POST /api/house-booking
+      ✕ should create a booking successfully (1 ms)
+      ✕ should return 401 when not authenticated
+      ✕ should return 404 when house not found (1 ms)
+    PATCH /api/house-booking/:id/cancel
+      ✕ should cancel a pending booking (1 ms)
+
+  ● House Booking API E2E › GET /api/house-booking › should return 401 when not authenticated
+
+    ValidationError: House validation failed: costCategory: `monthly` is not a valid enum value for path `costCategory`.
+
+      88 |
+      89 |     // Create a house listing
+    > 90 |     testHouse = await HouseListing.create({
+         |                 ^
+      91 |       title: 'Test House',
+      92 |       description: 'A beautiful test house',
+      93 |       price: 500,
+
+      at model.validate (node_modules/mongoose/lib/document.js:2864:36)
+      at model.$__save (node_modules/mongoose/lib/model.js:389:7)
+      at model.save (node_modules/mongoose/lib/model.js:663:5)
+      at Function.create (node_modules/mongoose/lib/model.js:2750:5)
+      at Object.<anonymous> (src/__tests__/e2e/houseBooking.test.js:90:17)
+
+  ● House Booking API E2E › GET /api/house-booking › should return 403 when user is not admin
+
+    ValidationError: House validation failed: costCategory: `monthly` is not a valid enum value for path `costCategory`.
+
+      88 |
+      89 |     // Create a house listing
+    > 90 |     testHouse = await HouseListing.create({
+         |                 ^
+      91 |       title: 'Test House',
+      92 |       description: 'A beautiful test house',
+      93 |       price: 500,
+
+      at model.validate (node_modules/mongoose/lib/document.js:2864:36)
+      at model.$__save (node_modules/mongoose/lib/model.js:389:7)
+      at model.save (node_modules/mongoose/lib/model.js:663:5)
+      at Function.create (node_modules/mongoose/lib/model.js:2750:5)
+      at Object.<anonymous> (src/__tests__/e2e/houseBooking.test.js:90:17)
+
+  ● House Booking API E2E › GET /api/house-booking › should return all bookings for admin
+
+    ValidationError: House validation failed: costCategory: `monthly` is not a valid enum value for path `costCategory`.
+
+      88 |
+      89 |     // Create a house listing
+    > 90 |     testHouse = await HouseListing.create({
+         |                 ^
+      91 |       title: 'Test House',
+      92 |       description: 'A beautiful test house',
+      93 |       price: 500,
+
+      at model.validate (node_modules/mongoose/lib/document.js:2864:36)
+      at model.$__save (node_modules/mongoose/lib/model.js:389:7)
+      at model.save (node_modules/mongoose/lib/model.js:663:5)
+      at Function.create (node_modules/mongoose/lib/model.js:2750:5)
+      at Object.<anonymous> (src/__tests__/e2e/houseBooking.test.js:90:17)
+
+  ● House Booking API E2E › POST /api/house-booking › should create a booking successfully
+
+    ValidationError: House validation failed: costCategory: `monthly` is not a valid enum value for path `costCategory`.
+
+      88 |
+      89 |     // Create a house listing
+    > 90 |     testHouse = await HouseListing.create({
+         |                 ^
+      91 |       title: 'Test House',
+      92 |       description: 'A beautiful test house',
+      93 |       price: 500,
+
+      at model.validate (node_modules/mongoose/lib/document.js:2864:36)
+      at model.$__save (node_modules/mongoose/lib/model.js:389:7)
+      at model.save (node_modules/mongoose/lib/model.js:663:5)
+      at Function.create (node_modules/mongoose/lib/model.js:2750:5)
+      at Object.<anonymous> (src/__tests__/e2e/houseBooking.test.js:90:17)
+
+  ● House Booking API E2E › POST /api/house-booking › should return 401 when not authenticated
+
+    ValidationError: House validation failed: costCategory: `monthly` is not a valid enum value for path `costCategory`.
+
+      88 |
+      89 |     // Create a house listing
+    > 90 |     testHouse = await HouseListing.create({
+         |                 ^
+      91 |       title: 'Test House',
+      92 |       description: 'A beautiful test house',
+      93 |       price: 500,
+
+      at model.validate (node_modules/mongoose/lib/document.js:2864:36)
+      at model.$__save (node_modules/mongoose/lib/model.js:389:7)
+      at model.save (node_modules/mongoose/lib/model.js:663:5)
+      at Function.create (node_modules/mongoose/lib/model.js:2750:5)
+      at Object.<anonymous> (src/__tests__/e2e/houseBooking.test.js:90:17)
+
+  ● House Booking API E2E › POST /api/house-booking › should return 404 when house not found
+
+    ValidationError: House validation failed: costCategory: `monthly` is not a valid enum value for path `costCategory`.
+
+      88 |
+      89 |     // Create a house listing
+    > 90 |     testHouse = await HouseListing.create({
+         |                 ^
+      91 |       title: 'Test House',
+      92 |       description: 'A beautiful test house',
+      93 |       price: 500,
+
+      at model.validate (node_modules/mongoose/lib/document.js:2864:36)
+      at model.$__save (node_modules/mongoose/lib/model.js:389:7)
+      at model.save (node_modules/mongoose/lib/model.js:663:5)
+      at Function.create (node_modules/mongoose/lib/model.js:2750:5)
+      at Object.<anonymous> (src/__tests__/e2e/houseBooking.test.js:90:17)
+
+  ● House Booking API E2E › PATCH /api/house-booking/:id/cancel › should cancel a pending booking
+
+    ValidationError: House validation failed: costCategory: `monthly` is not a valid enum value for path `costCategory`.
+
+      88 |
+      89 |     // Create a house listing
+    > 90 |     testHouse = await HouseListing.create({
+         |                 ^
+      91 |       title: 'Test House',
+      92 |       description: 'A beautiful test house',
+      93 |       price: 500,
+
+      at model.validate (node_modules/mongoose/lib/document.js:2864:36)
+      at model.$__save (node_modules/mongoose/lib/model.js:389:7)
+      at model.save (node_modules/mongoose/lib/model.js:663:5)
+      at Function.create (node_modules/mongoose/lib/model.js:2750:5)
+      at Object.<anonymous> (src/__tests__/e2e/houseBooking.test.js:90:17)
+
+Test Suites: 1 failed, 1 total
+Tests:       7 failed, 7 total
+Snapshots:   0 total
+Time:        5.667 s
+Ran all test suites matching src/__tests__/e2e/houseBooking.test.js.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

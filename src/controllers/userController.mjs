@@ -71,7 +71,7 @@ export const updateMyProfile = asyncHandler(async (req,res, next)=> {
                 } 
             },         
             { 
-                new: true
+                returnDocument: 'after'
             }
         );
 
@@ -121,7 +121,7 @@ export const promoteUser = asyncHandler(async (req, res, next) => {
         const user = await User.findByIdAndUpdate(
         userId,
         { role: role },
-        { new: true, runValidators: true } 
+        { returnDocument: 'after', runValidators: true } 
         );
 
         if (!user) {
