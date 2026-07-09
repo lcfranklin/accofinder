@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Room from "../models/Room.mjs";
 import { asyncHandler, sendResponse } from "../utils/helpers.mjs";
 
@@ -52,4 +53,16 @@ export const getAllRooms = asyncHandler(async (req, res, next)=>{
         sendResponse(res, 200, true, "All rooms retrieved", rooms);
 });
 
+export const getRoomById = asyncHandler(async(req, res, next) =>{
+        const roomId = req.params.id;
 
+        if(!mongoose.Types.ObjectId.isValid(roomId)){
+                return sendResponse(res, 400, false, "Invalid Id format")
+        }
+
+        const room = await Room.findById(roomId).populate('hostel');
+        if(!room){
+                return sendResponse(res, 404, false, `Room with id ${roomId} was not found`);
+        }
+        return sendResponse(res, 200, true, `Room with id ${roomId} was found`, room);
+});

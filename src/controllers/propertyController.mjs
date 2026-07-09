@@ -1,6 +1,6 @@
 import Property from "../models/Property.mjs";
 import { asyncHandler, sendResponse } from "../utils/helpers.mjs";
-
+import mongoose from "mongoose";
 
 export const createProperty = asyncHandler(async (req, res, next)=>{
     const {
@@ -52,4 +52,18 @@ export const getAllProperties = asyncHandler(async (req, res, next)=>{
     const properties = await Property.find();
     if(!properties) sendResponse(res, 400, false, " Bad request properties not found");
     sendResponse(res, 200, true, "properties were found", properties)
+});
+
+export const getPropertyById = asyncHandler( async (req, res, next) => {
+    const propertyId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(propertyId)) {
+        return sendResponse(res, 400, false, "Invalid property ID");
+    }
+
+    const property = await Property.findById(propertyId).populate('owner');
+    if (!property) {
+    return sendResponse(res, 404, false, `property with id ${propertyId} not found`);
+    }
+    return sendResponse(res, 200, true, `property with id ${propertyId} found`, property);
 });
