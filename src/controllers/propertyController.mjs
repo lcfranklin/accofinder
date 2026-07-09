@@ -48,6 +48,90 @@ export const createProperty = asyncHandler(async (req, res, next)=>{
     sendResponse(res, 200, true, "property was created", property)
 });
 
+export const updateProperty = asyncHandler(async (req,res, next)=> {
+            const userId = req.user.sub ||req.user.id
+            
+            const {
+            title,
+            description,
+            physicalAddress,
+            district,
+            village,
+            location,
+            coordinates,
+            verificationStatus,
+            amenities,
+            media,
+            isActive,
+            averageRating,
+            totalReviews} = req.body;
+
+            const updates = {
+                            title,
+                            description,
+                            physicalAddress,
+                            district,
+                            village,
+                            location,
+                            coordinates,
+                            verificationStatus,
+                            amenities,
+                            media,
+                            isActive,
+                            averageRating,
+                            totalReviews}
+
+            const allowedUpdates =  ['title',
+                            'description',
+                            'physicalAddress',
+                            'district',
+                            'village',
+                            'location',
+                            'coordinates',
+                            'verificationStatus',
+                            'amenities',
+                            'media',
+                            'isActive',
+                            'averageRating',
+                            'totalReviews'];
+            const updateKeys = Object.keys(updates);
+            const isValidUpdate = updateKeys.every(key => allowedUpdates.includes(key));
+
+            if (!isValidUpdate || updateKeys.length === 0) {
+                return sendResponse(res, 400, false, "Invalid or empty update fields")
+            }
+
+            const property = await Property.findByIdAndUpdate(
+                propertyId,
+                { $set: {
+                    title: title,
+                    description:description,
+                    physicalAddress: physicalAddress,
+                    district: district,
+                    village: village,
+                    location: location,
+                    coordinates: coordinates,
+                    verificationStatus: verificationStatus,
+                    amenities: amenities,
+                    media: media,
+                    isActive: isActive,
+                    averageRating: averageRating,
+                    totalReviews: totalReviews
+                    } 
+                },         
+                { 
+                    new: true
+                }
+            );
+
+            if (!property) {
+                return sendResponse(res, 404, false, "Property not updated")
+            }
+
+            return sendResponse(res, 200, true, "Property updated", property)
+
+});
+
 export const getAllProperties = asyncHandler(async (req, res, next)=>{
     const properties = await Property.find();
     if(!properties) sendResponse(res, 400, false, " Bad request properties not found");
