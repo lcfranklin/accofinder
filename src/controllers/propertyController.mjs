@@ -151,3 +151,13 @@ export const getPropertyById = asyncHandler( async (req, res, next) => {
     }
     return sendResponse(res, 200, true, `property with id ${propertyId} found`, property);
 });
+
+export const deleteProperty = asyncHandler(async (req, res, next)=> {
+        const propertyId = req.params.id
+        const deletedProperty = await Property.findByIdAndDelete(propertyId)
+        if(!deletedProperty){
+            return sendResponse(res, 500, false, "Failed to delete Property")
+        }
+
+        return sendResponse(res, 200, true, `property with id ${propertyId} got deleted successfully`)
+});

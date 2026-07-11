@@ -6,5 +6,6 @@ const propertyRoutes = express.Router();
     propertyRoutes.patch('/:id/update', propertyController.updateProperty)
     propertyRoutes.get('/', propertyController.getAllProperties);
     propertyRoutes.get('/:id', propertyController.getPropertyById);
+    propertyRoutes.delete('/:id/delete', propertyController.deleteProperty);
 
 export default propertyRoutes;

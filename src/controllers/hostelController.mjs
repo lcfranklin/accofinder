@@ -117,3 +117,13 @@ export const getHostelById = asyncHandler( async (req, res, next) =>{
     }
         return sendResponse(res, 200, true, `hostel with id ${hostelId} found`, hostel);
 });
+
+export const deleteProperty = asyncHandler(async (req, res, next)=> {
+        const hostelId = req.params.id
+        const deletedHostel = await Hostel.findByIdAndDelete(hostelId)
+        if(!deletedHostel){
+            return sendResponse(res, 500, false, "Failed to delete Hostel")
+        }
+
+        return sendResponse(res, 200, true, `Hostel with id ${hostelId} got deleted successfully`)
+});

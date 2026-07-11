@@ -8,5 +8,6 @@ const hostelRoutes = express.Router();
     hostelRoutes.patch('/:id/update', hostelController.updateHostel);
     hostelRoutes.get('/', hostelController.getAllHostels);
     hostelRoutes.get('/:id', hostelController.getHostelById);
+    hostelRoutes.delete('/:id/delete', hostelController.deleteProperty);
 
 export default hostelRoutes;
