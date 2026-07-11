@@ -19,7 +19,13 @@ export const createHouseSchema = Joi.object({
     .messages({
       'string.max': 'Description cannot exceed 1000 characters'
     }),
-
+  type: Joi.string()
+    .valid('House', 'Room')
+    .required()
+    .messages({
+      'any.required': 'Type is required',
+      'any.only': 'Type must be one of House or Room'
+    }),
   price: Joi.number()
     .positive()
     .required()
