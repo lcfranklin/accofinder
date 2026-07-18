@@ -1,45 +1,109 @@
-import mongoose from "mongoose";
-import RentableUnit from "./RentableUnit.mjs";
+import mongoose from 'mongoose';
+import RentableUnit from './RentableUnit.mjs';
 
 const roomSchema = new mongoose.Schema(
-{
-  roomName: String,
-  capacity: {
-    type: Number,
-    enum: [1, 2, 3]
-  },
+  {
+    roomNumber: {
+      type: String,
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    capacity: {
+      type: Number,
+      enum: [1, 2, 3],
+    },
 
-  property: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Property",
-    default: null
-  },
+    property: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Property',
+      default: null,
+    },
 
-  hostel: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Hostel",
-    default: null
-  },
+    hostel: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Hostel',
+      default: null,
+    },
 
-  isAvailable: {
-    type: Boolean,
-    default: true
-  }
-},
-{ timestamps: true }
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
+    floorNumber: {
+      type: Number,
+      min: 0,
+    },
+    squareFootage: {
+      type: Number,
+      min: 0,
+    },
+    hasWindow: {
+      type: Boolean,
+      default: true,
+    },
+    hasBalcony: {
+      type: Boolean,
+      default: false,
+    },
+    amenities: [
+      {
+        type: String,
+        enum: [
+          'AC',
+          'FAN',
+          'HEATER',
+          'FURNISHED',
+          'SEMI_FURNISHED',
+          'UNFURNISHED',
+          'ATTACHED_BATHROOM',
+        ],
+      },
+    ],
+  },
+  {
+    timestamps: true,
+  },
 );
 
-// enforce single parent rule
-roomSchema.pre("validate", function (next) {
-  if (!this.property && !this.hostel) {
-    return next(new Error("Room must belong to Property or Hostel"));
-  }
+// Indexes
+roomSchema.index({ property: 1, isAvailable: 1 });
+roomSchema.index({ hostel: 1, isAvailable: 1 });
+roomSchema.index({ house: 1, isAvailable: 1 });
+roomSchema.index({ capacity: 1 });
 
-  if (this.property && this.hostel) {
-    return next(new Error("Room cannot belong to both Property and Hostel"));
-  }
-
-  next();
+// Virtuals
+roomSchema.virtual('beds', {
+  ref: 'Bed',
+  localField: '_id',
+  foreignField: 'room',
 });
 
-export default RentableUnit.discriminator("Room", roomSchema);
+// Methods
+roomSchema.methods.getRentableUnitData = function () {
+  return {
+    id: this._id,
+    monthlyRent: this.monthlyRent,
+    bookingFee: this.bookingFee,
+    isAvailable: this.isAvailable,
+  };
+};
+
+roomSchema.methods.getAvailableBedsCount = function () {
+  return mongoose.model('Bed').countDocuments({
+    room: this._id,
+    isAvailable: true,
+  });
+};
+
+roomSchema.methods.updateAvailability = async function () {
+  if (this.hostel) {
+    const availableBeds = await this.getAvailableBedsCount();
+    this.isAvailable = availableBeds > 0;
+    await this.save();
+  }
+};
+
+export default RentableUnit.discriminator('Room', roomSchema);

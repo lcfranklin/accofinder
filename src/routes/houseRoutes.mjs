@@ -8,6 +8,7 @@ import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
 const houseRoutes = express.Router();
 
 houseRoutes.get('/', houseController.getHouses);
+houseRoutes.post('/create', houseController.createHouse);
 houseRoutes.post(
   '/',
   isAuthenticated,

@@ -12,7 +12,7 @@ userRoutes.get('/:id', isAuthenticated, checkRole(['admin']), userController.get
 
 userRoutes.get('/me/profile', isAuthenticated,userController.getMyProfile)
 // Update user profile (self)
-userRoutes.patch('/me/profile', isAuthenticated, checkRole(['landlord', 'client', 'student', 'admin']), validateRequest(updateProfileSchema), userController.updateMyProfile);
+userRoutes.patch('/me/profile', isAuthenticated, checkRole(['landlord', 'citizen', 'student', 'admin']), validateRequest(updateProfileSchema), userController.updateMyProfile);
 
 // Delete a user (admin only)
 userRoutes.delete('/:id', isAuthenticated,checkRole(['admin']), userController.deleteUser);
