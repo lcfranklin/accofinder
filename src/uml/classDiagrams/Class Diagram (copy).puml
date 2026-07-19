@@ -1,0 +1,322 @@
+@startuml
+title AccoFound - Final Qt Clean Architecture
+
+skinparam classAttributeIconSize 0
+
+class QObject
+
+'====================
+' ENUMS
+'====================
+enum PropertyStatus {
+  Pending
+  Verified
+  Booked
+}
+
+enum BookingStatus {
+  Pending
+  Paid
+  Confirmed
+  Cancelled
+}
+
+enum PaymentStatus {
+  Initiated
+  Success
+  Failed
+}
+
+enum VerificationStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+enum DisputeStatus {
+  Open
+  Resolved
+  Rejected
+}
+
+'====================
+' CORE INFRASTRUCTURE
+'====================
+class ApiClient {
+  +GET()
+  +POST()
+  +PUT()
+  +DELETE()
+
+  -- signals --
+  +requestSuccess()
+  +requestFailed()
+}
+
+'====================
+' INTERFACES (CONTRACTS)
+'====================
+interface IBookingRepository {
+  +createBooking()
+  +getBookings()
+  +cancelBooking()
+}
+
+interface IPropertyRepository {
+  +getProperties()
+  +getPropertyById()
+  +updateProperty()
+}
+
+interface IPaymentGateway {
+  +processPayment()
+  +refundPayment()
+}
+
+interface INotificationService {
+  +sendNotification()
+}
+
+interface IDisputeRepository {
+  +raiseDispute()
+  +resolveDispute()
+}
+
+interface IUserRepository {
+  +signIn()
+  +signUp()
+  +logout()
+}
+
+'====================
+' REPOSITORY IMPLEMENTATIONS (INFRA LAYER)
+'====================
+class BookingRepositoryImpl
+class PropertyRepositoryImpl
+class PaymentGatewayImpl
+class DisputeRepositoryImpl
+class UserRepositoryImpl
+class NotificationServiceImpl
+
+BookingRepositoryImpl ..|> IBookingRepository
+PropertyRepositoryImpl ..|> IPropertyRepository
+PaymentGatewayImpl ..|> IPaymentGateway
+DisputeRepositoryImpl ..|> IDisputeRepository
+UserRepositoryImpl ..|> IUserRepository
+NotificationServiceImpl ..|> INotificationService
+
+BookingRepositoryImpl --> ApiClient
+PropertyRepositoryImpl --> ApiClient
+PaymentGatewayImpl --> ApiClient
+DisputeRepositoryImpl --> ApiClient
+UserRepositoryImpl --> ApiClient
+NotificationServiceImpl --> ApiClient
+
+'====================
+' DOMAIN MODELS
+'====================
+class User {
+  +id: QString
+  +name: QString
+  +email: QString
+  +phone: QString
+  +createdAt: QDateTime
+
+  -- signals --
+  +profileUpdated()
+}
+
+class Agent {
+  +employeeId: QString
+  +assignedArea: QString
+  +commissionRate: double
+  +isActive: bool
+}
+
+class Client {
+  +isStudent: bool
+  +preferredLocation: QString
+  +budgetMin: double
+  +budgetMax: double
+
+  -- signals --
+  +bookingRequested(roomId)
+}
+
+class Landlord {
+  +id: QString
+  +name: QString
+  +phone: QString
+  +paymentDetails: QString
+}
+
+QObject <|-- User
+User <|-- Agent
+User <|-- Client
+QObject <|-- Landlord
+
+class Property {
+  +id: QString
+  +title: QString
+  +location: QString
+  +price: double
+  +description: QString
+  +status: PropertyStatus
+  +agentId: QString
+  +landlordId: QString
+  +createdAt: QDateTime
+
+  -- signals --
+  +propertyVerified()
+  +propertyBooked()
+  +propertyUpdated()
+}
+
+class Room {
+  +id: QString
+  +propertyId: QString
+  +type: QString
+  +available: bool
+
+  -- signals --
+  +availabilityChanged()
+}
+
+class Media {
+  +id: QString
+  +propertyId: QString
+  +url: QString
+  +type: QString
+
+  -- signals --
+  +mediaAdded()
+}
+
+class Booking {
+  +id: QString
+  +clientId: QString
+  +roomId: QString
+  +bookingDate: QDateTime
+  +status: BookingStatus
+  +amount: double
+  +commissionAmount: double
+
+  -- signals --
+  +bookingConfirmed()
+  +bookingCancelled()
+}
+
+class Payment {
+  +id: QString
+  +bookingId: QString
+  +amount: double
+  +method: QString
+  +status: PaymentStatus
+  +transactionRef: QString
+  +payoutStatus: QString
+  +payoutDate: QDateTime
+
+  -- signals --
+  +paymentProcessed()
+  +paymentFailed()
+}
+
+class Review {
+  +id: QString
+  +rating: int
+  +comment: QString
+  +createdAt: QDateTime
+
+  -- signals --
+  +reviewSubmitted()
+}
+
+class Verification {
+  +id: QString
+  +propertyId: QString
+  +status: VerificationStatus
+  +verifiedAt: QDateTime
+
+  -- signals --
+  +verificationCompleted()
+}
+
+class Notification {
+  +id: QString
+  +message: QString
+  +type: QString
+
+  -- signals --
+  +notificationSent()
+}
+
+class Dispute {
+  +id: QString
+  +bookingId: QString
+  +issue: QString
+  +status: DisputeStatus
+
+  -- signals --
+  +disputeRaised()
+  +disputeResolved()
+}
+
+'====================
+' DOMAIN RELATIONSHIPS
+'====================
+Agent "1" --> "0..*" Property : lists
+Landlord "1" --> "0..*" Property : owns
+
+Property "1" *-- "1..*" Room : contains
+Property "1" *-- "0..*" Media : media
+
+Client "1" --> "0..*" Booking : creates
+Booking "1" --> "1" Room : reserves
+Booking "1" *-- "1" Payment : payment
+Payment --> Landlord : payout
+
+Client "1" --> "0..*" Review : writes
+Property "1" *-- "0..*" Review : reviews
+Review --> Agent : evaluates
+
+Property "1" *-- "0..*" Verification : verification history
+Agent --> Verification : performs
+
+Booking --> "0..*" Notification
+Dispute --> Booking : concerns
+
+'====================
+' APPLICATION LAYER (CONTROLLERS / USE CASES)
+'====================
+class BookingController
+class PropertyController
+class PaymentController
+class AuthController
+
+BookingController --> IBookingRepository
+BookingController --> IPaymentGateway
+
+PropertyController --> IPropertyRepository
+PaymentController --> IPaymentGateway
+AuthController --> IUserRepository
+
+BookingController --> Booking
+PropertyController --> Property
+
+'====================
+' PRESENTATION LAYER (QML MODELS)
+'====================
+class BookingListModel
+class PropertyListModel
+class RoomListModel
+class ReviewListModel
+
+BookingListModel --> Booking
+PropertyListModel --> Property
+RoomListModel --> Room
+ReviewListModel --> Review
+
+BookingListModel --> BookingController
+PropertyListModel --> PropertyController
+
+@enduml

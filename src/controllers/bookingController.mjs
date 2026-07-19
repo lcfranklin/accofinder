@@ -257,13 +257,13 @@ export const updateBooking = async (req, res, next) => {
       };
     }
 
-    const updatedBooking = await populateBooking(
-      HouseBooking.findByIdAndUpdate(
-        id,
-        { $set: updates },
-        { new: true, runValidators: true },
-      ),
-    );
+    // const updatedBooking = await populateBooking(
+    //   HouseBooking.findByIdAndUpdate(
+    //     id,
+    //     { $set: updates },
+    //     { new: true, runValidators: true },
+    //   ),
+    // );
 
     res.status(200).json({
       status: 'success',

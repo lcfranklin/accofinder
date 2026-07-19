@@ -1,8 +1,7 @@
 export const BookingStatus = Object.freeze({
     PENDING: 'PENDING',
+    PAID: 'PAID',
     CONFIRMED: 'CONFIRMED',
-    ACTIVE: 'ACTIVE',
     CANCELLED: 'CANCELLED',
-    COMPLETED: 'COMPLETED'
 });
 

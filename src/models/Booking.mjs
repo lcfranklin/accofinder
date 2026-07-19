@@ -16,7 +16,7 @@ const bookingSchema = new mongoose.Schema({
   rentableUnitType: {
     type: String,
     required: true,
-    enum: ['House', 'Room', 'Bed']
+    enum: ['HOUSE', 'ROOM', 'BED']
   },
   bookingType: {
     type: String,

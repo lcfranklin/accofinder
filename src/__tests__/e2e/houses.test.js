@@ -1,8 +1,8 @@
 import request from "supertest";
 import app from "../../app.mjs";
-import HouseListing from "../../models/HouseListing.mjs";
+import House from "../../models/House.mjs";
 
-jest.mock("../../models/HouseListing.mjs");
+jest.mock("../../models/House.mjs");
 
 jest.mock("../../middleware/authMiddleware.mjs", () => ({
   isAuthenticated: jest.fn((req, res, next) => {
@@ -27,7 +27,7 @@ describe("House Listing API", () => {
         { _id: "2", title: "House 2" }
       ];
 
-      HouseListing.find.mockReturnValue({
+      House.find.mockReturnValue({
         populate: jest.fn().mockResolvedValue(mockHouses)
       });
 
@@ -39,7 +39,7 @@ describe("House Listing API", () => {
     });
 
     it("should handle errors", async () => {
-      HouseListing.find.mockImplementation(() => {
+      House.find.mockImplementation(() => {
         throw new Error("DB Error");
       });
 
@@ -59,7 +59,7 @@ describe("House Listing API", () => {
         costCategory: "Medium_Cost"
       };
 
-      HouseListing.mockImplementation(() => ({
+      House.mockImplementation(() => ({
         save: jest.fn().mockResolvedValue(newHouse)
       }));
 
@@ -73,7 +73,7 @@ describe("House Listing API", () => {
     });
 
     it("should handle validation errors", async () => {
-      HouseListing.mockImplementation(() => ({
+      House.mockImplementation(() => ({
         save: jest.fn().mockRejectedValue(new Error("Validation failed"))
       }));
 

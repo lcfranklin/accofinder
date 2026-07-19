@@ -32,7 +32,7 @@ describe('Users API E2E', () => {
     adminUser = adminRes.body.data;
     
     // Promote to admin
-    await User.findByIdAndUpdate(adminUser._id, { role: 'admin' });
+    await User.findByIdAndUpdate(adminUser._id, { role: 'ADMIN' });
     
     // Refresh admin token with new role
     const adminLoginRes = await request(app)
@@ -157,11 +157,11 @@ describe('Users API E2E', () => {
       const res = await request(app)
         .patch(`/api/users/${testUserId}/promote`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ role: 'landlord' });
+        .send({ role: 'LANDLORD' });
 
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.message).toContain('User role changed to landlord');
+      expect(res.body.message).toContain(`User role changed to LANDLORD`);
     });
 
     it('should return 403 when non-admin tries to promote', async () => {
