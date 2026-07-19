@@ -21,6 +21,7 @@ import bedRoutes from './routes/bedRoutes.mjs';
 import roomRoutes from './routes/roomRoutes.mjs';
 import propertyRoutes from './routes/propertyRoutes.mjs';
 import hostelRoutes from './routes/hostelRoutes.mjs';
+import houseBookingRoutes from './routes/bookingRoutes.mjs';
 
 dotenv.config();
 
@@ -130,7 +131,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/houses', houseRoutes);
 app.use('/api/hostels', hostelRoutes);
-app.use('/api/bookings', houseRoutes);
+app.use('/api/bookings', houseBookingRoutes);
 app.use('/api/rooms', roomRoutes)
 app.use('/api/beds', bedRoutes)
 

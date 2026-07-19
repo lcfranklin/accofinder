@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { PaymentStatus } from './enums/PaymentStatus.mjs';
 
 const { Schema, model, Types } = mongoose;
 
@@ -25,8 +26,8 @@ const paymentSchema = new Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'completed', 'failed', 'refunded'],
-        default: 'pending'
+        enum: Object.values(PaymentStatus),
+        default: PaymentStatus.INITIATED
     },
     transactionId: {
         type: String,

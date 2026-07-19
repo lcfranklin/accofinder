@@ -16,7 +16,7 @@ const houseSchema = new mongoose.Schema({
   },
   costCategory: {
     type: String,
-    enum: ['Low_Cost', 'Medium_Cost', 'High_Cost'],
+    enum: ['LOW_COST', 'MEDIUM_COST', 'HIGH_COST'],
     required: true,
   },
   owner: {

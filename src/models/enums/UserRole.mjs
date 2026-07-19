@@ -1,6 +1,7 @@
 export const UserRole = Object.freeze({
+    ADMIN: 'ADMIN',
+    AGENT: 'AGENT',
     STUDENT: 'STUDENT',
     CITIZEN: 'CITIZEN',
-    AGENT: 'AGENT',
-    LANDLORD: 'LANDLORD'
+    LANDLORD: 'LANDLORD',
 });

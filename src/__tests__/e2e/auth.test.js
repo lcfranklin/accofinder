@@ -39,7 +39,7 @@ describe('Auth API E2E', () => {
       expect(res.body.data).toHaveProperty('accessToken');
       expect(res.body.data).toHaveProperty('refreshToken');
       expect(res.body.data.email).toBe(testUser.email);
-      expect(res.body.data.role).toBe('client');
+      expect(res.body.data.role).toBe('CITIZEN');
     });
 
     it('should return 400 when passwords do not match', async () => {

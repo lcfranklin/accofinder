@@ -1,16 +1,5 @@
-import express from 'express'
-import * as houseController from '../controllers/houseController.mjs'
-
-const houseRoutes = express.Router();
-
-houseRoutes.use('/', houseController.getBookings)
-
-export default houseRoutes;
-
-
-
 import express from 'express';
-import * as bookingController from '../controllers/houseBookingController.mjs';
+import * as bookingController from '../controllers/bookingController.mjs';
 import { isAuthenticated, checkRole } from "../middleware/authMiddleware.mjs"
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
 import { createBookingSchema } from '../validators/createBookingSchema.mjs';
