@@ -15,22 +15,20 @@ const roomSchema = new mongoose.Schema(
       type: Number,
       enum: [1, 2, 3],
     },
-
     property: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Property',
       default: null,
     },
-
     hostel: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Hostel',
       default: null,
     },
-
-    isAvailable: {
-      type: Boolean,
-      default: true,
+    house: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'House',
+      default: null,
     },
     floorNumber: {
       type: Number,
@@ -106,4 +104,6 @@ roomSchema.methods.updateAvailability = async function () {
   }
 };
 
-export default RentableUnit.discriminator('Room', roomSchema);
+const Room =
+  mongoose.models.Room || RentableUnit.discriminator('Room', roomSchema);
+export default Room;

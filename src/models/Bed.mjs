@@ -13,20 +13,6 @@ const bedSchema = new mongoose.Schema(
       ref: 'Room',
       required: true,
     },
-    monthlyRent: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    bookingFee: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    isAvailable: {
-      type: Boolean,
-      default: true,
-    },
     bedType: {
       type: String,
       enum: ['SINGLE', 'DOUBLE', 'BUNK_TOP', 'BUNK_BOTTOM'],
@@ -53,13 +39,16 @@ bedSchema.methods.getRentableUnitData = function () {
 };
 
 bedSchema.methods.bookBed = async function () {
-  if (!this.isAvailable) {
+  const updated = await this.constructor.findOneAndUpdate(
+    { _id: this._id, isAvailable: true },
+    { isAvailable: false },
+    { new: true },
+  );
+  if (!updated) {
     throw new Error('Bed is not available');
   }
-  this.isAvailable = false;
-  await this.save();
+  Object.assign(this, updated.toObject());
 
-  // Update room availability if all beds are booked
   const Room = mongoose.model('Room');
   const room = await Room.findById(this.room);
   if (room) {
@@ -80,7 +69,6 @@ bedSchema.methods.releaseBed = async function () {
   this.isAvailable = true;
   await this.save();
 
-  // Update room availability
   const Room = mongoose.model('Room');
   const room = await Room.findById(this.room);
   if (room && !room.isAvailable) {

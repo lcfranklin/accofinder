@@ -8,25 +8,53 @@ const houseSchema = new mongoose.Schema(
       ref: 'Property',
       required: true,
     },
-
-    title: String,
-    description: String,
-
+    title: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+    },
     costCategory: {
       type: String,
       enum: ['Low_Cost', 'Medium_Cost', 'High_Cost'],
+      required: true,
     },
-
-    numberOfRooms: Number,
-    numberOfBathrooms: Number,
-    squareFootage: Number,
-
-    isAvailable: {
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    numberOfRooms: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    numberOfBathrooms: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    floorNumber: {
+      type: Number,
+      min: 0,
+    },
+    hasLivingRoom: {
       type: Boolean,
       default: true,
     },
+    hasKitchen: {
+      type: Boolean,
+      default: true,
+    },
+    squareFootage: {
+      type: Number,
+      min: 0,
+    },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
 // Indexes
