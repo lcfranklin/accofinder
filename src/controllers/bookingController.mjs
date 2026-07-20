@@ -1,97 +1,66 @@
+// controllers/houseBookingController.mjs
 import mongoose from 'mongoose';
 import Booking from '../models/Booking.mjs';
-
-const populateBooking = (query) =>
-  query
-    .populate('house', 'title price costCategory')
-    .populate('tenant', 'name email')
-    .populate('owner', 'name email')
-    .populate('cancelledBy', 'name email')
-    .populate('createdBy', 'name email');
+import Room from '../models/Room.mjs';
+import House from '../models/House.mjs';
+import Hostel from '../models/Hostel.mjs';
+import Property from '../models/Property.mjs';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-// GET /bookings — admin only
+const populateBooking = (query) =>
+  query
+    .populate('rentableUnit') // resolves to House/Room/Bed doc
+    .populate('tenant', 'name email')
+    .populate('payment');
+
+const getUnitModel = (unitType) => mongoose.model(unitType);
+
+const getUnitOwnerId = async (unitType, unitId) => {
+  if (unitType === 'House') {
+    const house = await House.findById(unitId).select('owner');
+    return house?.owner ?? null;
+  }
+
+  if (unitType === 'Room') {
+    const room = await Room.findById(unitId).select('property hostel');
+    if (!room) return null;
+
+    if (room.property) {
+      const property = await Property.findById(room.property).select('owner');
+      return property?.owner ?? null;
+    }
+
+    if (room.hostel) {
+      const hostel = await Hostel.findById(room.hostel).select('property');
+      if (!hostel) return null;
+      const property = await Property.findById(hostel.property).select('owner');
+      return property?.owner ?? null;
+    }
+
+    return null;
+  }
+
+  if (unitType === 'Bed') {
+    const Bed = getUnitModel('Bed');
+    const bed = await Bed.findById(unitId).select('room');
+    if (!bed) return null;
+    return getUnitOwnerId('Room', bed.room);
+  }
+
+  return null;
+};
+
+// GET /bookings — admin only ( checkRole in routes)
+
 export const getBookings = async (req, res, next) => {
   try {
-    const bookings = await Booking.find();
-    if (!bookings) {
-      return res.status(500).json({
-        status: 'fail',
-        message: 'Failed to fetch bookings',
-      });
-    }
-
-    if (bookings.length === 0) {
-      return res.status(404).json({
-        status: 'fail',
-        message: 'No bookings available',
-      });
-    }
+    const bookings = await populateBooking(Booking.find());
 
     res.status(200).json({
       status: 'success',
-      bookings,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const createBook = async (req, res, next) => {
-  try {
-    const booking = new Booking(req.body);
-    const savedBooking = await booking.save();
-
-    if (!savedBooking) {
-      return res.status(500).json({
-        status: 'fail',
-        message: 'failed to create booking',
-      });
-    }
-    res.status(202).json({
-      status: 'success',
-      data: savedBooking,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// GET /bookings/:id — any authenticated user, but only their own unless admin
-export const getBookingById = async (req, res, next) => {
-  const { id } = req.params;
-
-  if (!isValidId(id)) {
-    return res.status(400).json({
-      status: 'fail',
-      message: 'Invalid booking ID format',
-    });
-  }
-
-  try {
-    const booking = await Booking.findById(bookId);
-    if (!booking) {
-      return res.status(404).json({
-        status: 'fail',
-        message: `Booking with id ${id} not found`,
-      });
-    }
-
-    const isAdmin = req.user.role === 'admin';
-    const isTenant = booking.tenant._id.toString() === req.user._id.toString();
-    const isOwner = booking.owner._id.toString() === req.user._id.toString();
-
-    if (!isAdmin && !isTenant && !isOwner) {
-      return res.status(403).json({
-        status: 'fail',
-        message: 'You are not authorized to view this booking',
-      });
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: booking,
+      results: bookings.length,
+      data: bookings,
     });
   } catch (error) {
     next(error);
@@ -99,112 +68,155 @@ export const getBookingById = async (req, res, next) => {
 };
 
 // POST /bookings — any authenticated user
+
 export const createBooking = async (req, res, next) => {
   try {
-    const deletedBooking = await Booking.findByIdAndDelete(bookingId);
-    if (!deletedBooking) {
-      return res.status(500).json({
+    const { unitId, unitType, startDate, endDate, specialNotes } = req.body;
+    const tenantId = req.user._id;
+
+    const UnitModel = getUnitModel(unitType);
+    const unit = await UnitModel.findById(unitId);
+    if (!unit) {
+      return res
+        .status(404)
+        .json({ status: 'fail', message: `${unitType} not found` });
+    }
+
+    if (unitType === 'Room') {
+      const Bed = getUnitModel('Bed');
+      const bedCount = await Bed.countDocuments({ room: unitId });
+      if (bedCount > 0) {
+        return res.status(400).json({
+          status: 'fail',
+          message:
+            'This room has individual beds — book a specific bed instead of the whole room',
+        });
+      }
+    }
+
+    const ownerId = await getUnitOwnerId(unitType, unitId);
+    if (ownerId && ownerId.toString() === tenantId.toString()) {
+      return res.status(400).json({
         status: 'fail',
-        message: 'House not found',
+        message: `You cannot book your own ${unitType.toLowerCase()}`,
       });
     }
 
-    // prevent owner from booking their own house
-    if (house.owner.toString() === tenantId.toString()) {
-      return res.status(400).json({
+    if (unit.isAvailable === false) {
+      return res.status(409).json({
         status: 'fail',
-        message: 'You cannot book your own house',
-      });
-    }
-
-    // prevent duplicate active bookings on the same house
-    const existingBooking = await HouseBooking.findOne({
-      house: houseId,
-      tenant: tenantId,
-      status: { $in: ['pending', 'confirmed', 'active'] },
-    });
-
-    if (existingBooking) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'You already have an active booking for this house',
+        message: `This ${unitType.toLowerCase()} is currently unavailable`,
       });
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    if (end <= start) {
-      return res.status(400).json({
+    const available = await Booking.isUnitAvailable(
+      unitId,
+      unitType,
+      start,
+      end,
+    );
+    if (!available) {
+      return res.status(409).json({
         status: 'fail',
-        message: 'End date must be after start date',
+        message: `This ${unitType.toLowerCase()} is already booked for the selected dates`,
       });
     }
 
-    const numberOfMonths =
+    const numberOfMonths = Math.max(
+      1,
       (end.getFullYear() - start.getFullYear()) * 12 +
-      (end.getMonth() - start.getMonth());
+        (end.getMonth() - start.getMonth()),
+    );
 
-    if (numberOfMonths < 1) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Booking must be at least 1 month',
-      });
-    }
-
-    const pricePerMonth = house.price;
-    const totalAmount = pricePerMonth * numberOfMonths;
-
-    const booking = new HouseBooking({
-      house: houseId,
+    const booking = await Booking.create({
       tenant: tenantId,
-      owner: house.owner,
+      rentableUnit: unitId,
+      unitType,
       startDate: start,
       endDate: end,
-      numberOfMonths,
-      pricePerMonth,
-      totalAmount,
-      createdBy: tenantId,
+      bookingFee: unit.bookingFee,
+      totalRentAmount: unit.monthlyRent * numberOfMonths,
       specialNotes,
     });
 
-    const savedBooking = await booking.save();
+    if (unitType === 'Bed') {
+      await unit.bookBed();
+    } else {
+      unit.isAvailable = false;
+      await unit.save();
+    }
 
-    res.status(201).json({
-      status: 'success',
-      data: savedBooking,
-    });
+    const populated = await populateBooking(Booking.findById(booking._id));
+
+    res.status(201).json({ status: 'success', data: populated });
   } catch (error) {
     next(error);
   }
 };
 
-// PATCH /bookings/:id — only the tenant who booked
+// GET /bookings/:id — tenant, unit owner, or admin
+
+export const getBookingById = async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!isValidId(id)) {
+    return res
+      .status(400)
+      .json({ status: 'fail', message: 'Invalid booking ID format' });
+  }
+
+  try {
+    const booking = await populateBooking(Booking.findById(id));
+    if (!booking) {
+      return res
+        .status(404)
+        .json({ status: 'fail', message: `Booking with id ${id} not found` });
+    }
+
+    const isAdmin = req.user.role === 'admin';
+    const isTenant = booking.tenant._id.toString() === req.user._id.toString();
+    const ownerId = await getUnitOwnerId(
+      booking.unitType,
+      booking.rentableUnit._id,
+    );
+    const isUnitOwner =
+      ownerId && ownerId.toString() === req.user._id.toString();
+
+    if (!isAdmin && !isTenant && !isUnitOwner) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You are not authorized to view this booking',
+      });
+    }
+
+    res.status(200).json({ status: 'success', data: booking });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /bookings/:id — tenant only, PENDING bookings only
+
 export const updateBooking = async (req, res, next) => {
   const { id } = req.params;
 
   if (!isValidId(id)) {
-    return res.status(400).json({
-      status: 'fail',
-      message: 'Invalid booking ID format',
-    });
+    return res
+      .status(400)
+      .json({ status: 'fail', message: 'Invalid booking ID format' });
   }
 
   try {
-    const updatedBooking = await Booking.findByIdAndUpdate(
-      bookingId,
-      req.body,
-      { new: true },
-    );
-
-    if (!updatedBooking) {
-      return res.status(500).json({
-        status: 'fail',
-        message: `Booking with id ${id} not found`,
-      });
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res
+        .status(404)
+        .json({ status: 'fail', message: `Booking with id ${id} not found` });
     }
 
-    // only the tenant who created the booking can update it
     if (booking.tenant.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         status: 'fail',
@@ -212,19 +224,16 @@ export const updateBooking = async (req, res, next) => {
       });
     }
 
-    // only pending bookings can be updated
-    if (booking.status !== 'pending') {
+    if (booking.status !== 'PENDING') {
       return res.status(400).json({
         status: 'fail',
-        message: `Only pending bookings can be updated. Current status: ${booking.status}`,
+        message: `Only PENDING bookings can be updated. Current status: ${booking.status}`,
       });
     }
 
-    // strip all sensitive fields — only allow safe ones through
     const { startDate, endDate, specialNotes } = req.body;
-
-    // recalculate derived fields if dates are being changed
-    let updates = { specialNotes };
+    const updates = {};
+    if (specialNotes !== undefined) updates.specialNotes = specialNotes;
 
     if (startDate || endDate) {
       const start = new Date(startDate ?? booking.startDate);
@@ -237,61 +246,66 @@ export const updateBooking = async (req, res, next) => {
         });
       }
 
-      const numberOfMonths =
-        (end.getFullYear() - start.getFullYear()) * 12 +
-        (end.getMonth() - start.getMonth());
+      const overlap = await Booking.findOne({
+        _id: { $ne: booking._id },
+        rentableUnit: booking.rentableUnit,
+        unitType: booking.unitType,
+        status: { $ne: 'CANCELLED' },
+        startDate: { $lt: end },
+        endDate: { $gt: start },
+      });
 
-      if (numberOfMonths < 1) {
-        return res.status(400).json({
+      if (overlap) {
+        return res.status(409).json({
           status: 'fail',
-          message: 'Booking must be at least 1 month',
+          message: 'This unit is already booked for the new dates',
         });
       }
 
-      updates = {
-        ...updates,
-        startDate: start,
-        endDate: end,
-        numberOfMonths,
-        totalAmount: booking.pricePerMonth * numberOfMonths,
-      };
+      const UnitModel = getUnitModel(booking.unitType);
+      const unit = await UnitModel.findById(booking.rentableUnit);
+      const numberOfMonths = Math.max(
+        1,
+        (end.getFullYear() - start.getFullYear()) * 12 +
+          (end.getMonth() - start.getMonth()),
+      );
+
+      updates.startDate = start;
+      updates.endDate = end;
+      updates.totalRentAmount = unit.monthlyRent * numberOfMonths;
     }
 
-    const updatedBooking = await populateBooking(
-      HouseBooking.findByIdAndUpdate(
+    const updated = await populateBooking(
+      Booking.findByIdAndUpdate(
         id,
         { $set: updates },
         { new: true, runValidators: true },
       ),
     );
 
-    res.status(200).json({
-      status: 'success',
-      data: updatedBooking,
-    });
+    res.status(200).json({ status: 'success', data: updated });
   } catch (error) {
     next(error);
   }
 };
 
-// DELETE /bookings/:id — tenant or admin
+// DELETE /bookings/:id — tenant or admin, non-PAID/CONFIRMED only
+
 export const deleteBooking = async (req, res, next) => {
   const { id } = req.params;
 
   if (!isValidId(id)) {
-    return res.status(400).json({
-      status: 'fail',
-      message: 'Invalid booking ID format',
-    });
+    return res
+      .status(400)
+      .json({ status: 'fail', message: 'Invalid booking ID format' });
   }
 
   try {
-    const booking = await HouseBooking.findById(id);
+    const booking = await Booking.findById(id);
     if (!booking) {
-      return res.status(404).json({
-        status: 'fail',
-        message: `Booking with id ${id} not found`,
-      });
+      return res
+        .status(404)
+        .json({ status: 'fail', message: `Booking with id ${id} not found` });
     }
 
     const isAdmin = req.user.role === 'admin';
@@ -304,15 +318,14 @@ export const deleteBooking = async (req, res, next) => {
       });
     }
 
-    // only allow deletion of non-active bookings
-    if (booking.status === 'active') {
+    if (['PAID', 'CONFIRMED'].includes(booking.status)) {
       return res.status(400).json({
         status: 'fail',
-        message: 'Cannot delete an active booking. Cancel it first',
+        message: 'Cannot delete a PAID or CONFIRMED booking. Cancel it first',
       });
     }
 
-    await HouseBooking.findByIdAndDelete(id);
+    await Booking.findByIdAndDelete(id);
 
     res.status(200).json({
       status: 'success',
@@ -323,48 +336,55 @@ export const deleteBooking = async (req, res, next) => {
   }
 };
 
-// PATCH /bookings/:id/cancel — tenant or owner
+// PATCH /bookings/:id/cancel — tenant, unit owner, or admin
+
 export const cancelBooking = async (req, res, next) => {
   const { id } = req.params;
+  const { reason } = req.body;
 
   if (!isValidId(id)) {
-    return res.status(400).json({
-      status: 'fail',
-      message: 'Invalid booking ID format',
-    });
+    return res
+      .status(400)
+      .json({ status: 'fail', message: 'Invalid booking ID format' });
   }
 
   try {
-    const booking = await HouseBooking.findById(id);
+    const booking = await Booking.findById(id);
     if (!booking) {
-      return res.status(404).json({
-        status: 'fail',
-        message: `Booking with id ${id} not found`,
-      });
+      return res
+        .status(404)
+        .json({ status: 'fail', message: `Booking with id ${id} not found` });
     }
 
+    const isAdmin = req.user.role === 'admin';
     const isTenant = booking.tenant.toString() === req.user._id.toString();
-    const isOwner = booking.owner.toString() === req.user._id.toString();
+    const ownerId = await getUnitOwnerId(
+      booking.unitType,
+      booking.rentableUnit,
+    );
+    const isUnitOwner =
+      ownerId && ownerId.toString() === req.user._id.toString();
 
-    if (!isTenant && !isOwner) {
+    if (!isAdmin && !isTenant && !isUnitOwner) {
       return res.status(403).json({
         status: 'fail',
         message: 'You are not authorized to cancel this booking',
       });
     }
 
-    const nonCancellableStatuses = ['completed', 'cancelled', 'rejected'];
-    if (nonCancellableStatuses.includes(booking.status)) {
-      return res.status(400).json({
-        status: 'fail',
-        message: `Cannot cancel a booking that is already ${booking.status}`,
-      });
+    if (booking.status === 'CANCELLED') {
+      return res
+        .status(400)
+        .json({ status: 'fail', message: 'Booking is already cancelled' });
     }
 
-    booking.status = 'cancelled';
-    booking.cancelledAt = new Date();
-    booking.cancelledBy = req.user._id;
-    await booking.save();
+    await booking.cancel(reason);
+
+    if (booking.unitType === 'Bed') {
+      const Bed = getUnitModel('Bed');
+      const bed = await Bed.findById(booking.rentableUnit);
+      if (bed) await bed.releaseBed();
+    }
 
     res.status(200).json({
       status: 'success',
@@ -376,48 +396,75 @@ export const cancelBooking = async (req, res, next) => {
   }
 };
 
-// PATCH /bookings/:id/confirm — only the house owner
+// PATCH /bookings/:id/confirm — unit owner or admin
+
 export const confirmBooking = async (req, res, next) => {
   const { id } = req.params;
 
   if (!isValidId(id)) {
-    return res.status(400).json({
-      status: 'fail',
-      message: 'Invalid booking ID format',
-    });
+    return res
+      .status(400)
+      .json({ status: 'fail', message: 'Invalid booking ID format' });
   }
 
   try {
-    const booking = await HouseBooking.findById(id);
+    const booking = await Booking.findById(id);
     if (!booking) {
-      return res.status(404).json({
-        status: 'fail',
-        message: `Booking with id ${id} not found`,
-      });
+      return res
+        .status(404)
+        .json({ status: 'fail', message: `Booking with id ${id} not found` });
     }
 
-    if (booking.owner.toString() !== req.user._id.toString()) {
+    const isAdmin = req.user.role === 'admin';
+    const ownerId = await getUnitOwnerId(
+      booking.unitType,
+      booking.rentableUnit,
+    );
+    const isUnitOwner =
+      ownerId && ownerId.toString() === req.user._id.toString();
+
+    if (!isAdmin && !isUnitOwner) {
       return res.status(403).json({
         status: 'fail',
-        message: 'Only the house owner can confirm this booking',
+        message: 'Only the unit owner can confirm this booking',
       });
     }
 
-    if (booking.status !== 'pending') {
-      return res.status(400).json({
-        status: 'fail',
-        message: `Only pending bookings can be confirmed. Current status: ${booking.status}`,
-      });
-    }
-
-    booking.status = 'confirmed';
-    await booking.save();
+    await booking.confirm();
 
     res.status(200).json({
       status: 'success',
       message: 'Booking confirmed successfully',
       data: booking,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /bookings/:id/pay
+
+export const markBookingPaid = async (req, res, next) => {
+  const { id } = req.params;
+  const { paymentId } = req.body;
+
+  if (!isValidId(id) || !isValidId(paymentId)) {
+    return res
+      .status(400)
+      .json({ status: 'fail', message: 'Invalid ID format' });
+  }
+
+  try {
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res
+        .status(404)
+        .json({ status: 'fail', message: `Booking with id ${id} not found` });
+    }
+
+    await booking.markPaid(paymentId);
+
+    res.status(200).json({ status: 'success', data: booking });
   } catch (error) {
     next(error);
   }
