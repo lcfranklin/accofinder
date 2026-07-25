@@ -161,23 +161,6 @@ bookingSchema.methods.checkOut = async function() {
   return this;
 };
 
-// Pre-save middleware
-bookingSchema.pre('save', function(next) {
-  // Validate dates
-  if (this.startDate >= this.endDate) {
-    next(new Error('End date must be after start date'));
-    return;
-  }
-
-  // Validate if start date is in the future
-  const now = new Date();
-  if (this.startDate <= now) {
-    next(new Error('Start date must be in the future'));
-    return;
-  }
-
-  next();
-});
 
 const Booking = mongoose.model('Booking', bookingSchema);
 export default Booking;

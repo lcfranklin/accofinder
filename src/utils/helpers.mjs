@@ -169,7 +169,7 @@ export const optimizeImage = async (filePath) => {
   }
 };
 // Helper: call PayChangu
-export const pcFetch = async (path, init = {}) => {
+export const pcFetch = asyncHandler(async (path, init = {}) => {
   const res = await fetch(`${PAYCHANGU_API}${path}`, {
     ...init,
     headers: {
@@ -190,7 +190,7 @@ export const pcFetch = async (path, init = {}) => {
     throw new Error(`Invalid response from PayChangu: ${text.substring(0, 100)}`);
   }
 
-  // Log full response for debugging
+  // Log full response 
   if (!res.ok) {
     console.error("PayChangu API Error:", {
       status: res.status,
@@ -208,7 +208,7 @@ export const pcFetch = async (path, init = {}) => {
   }
 
   return data;
-};
+});
 
 //mas phone number
 export const maskPhone = (phone)=>{

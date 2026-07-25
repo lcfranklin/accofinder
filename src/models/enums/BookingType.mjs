@@ -1,5 +1,5 @@
 export const BookingType =Object.freeze( {
-    WHOLE_PROPERTY: 'WHOLE_PROPERTY',
+    HOUSE: 'HOUSE',
     ROOM: 'ROOM',
     BED: 'BED'
 });
