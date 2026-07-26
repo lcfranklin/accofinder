@@ -6,13 +6,13 @@ import {isAuthenticated, checkRole} from '../middleware/authMiddleware.mjs';
 const disputeRoutes = express.Router();
 
 //landlord and Ternats can see their own disputes but Admins can see ALL
-disputeRoutes.get('/', isAuthenticated,checkRole(['landlord', 'client', 'admin']), disputeController.getDisputes);
+disputeRoutes.get('/', isAuthenticated,checkRole(['AGENT', 'CLIENT', 'ADMIN']), disputeController.getDisputes);
 
 //Only authenticated users can create disputes
 disputeRoutes.post('/', isAuthenticated, disputeController.createDispute);
 
 //only Admins or Lamdlords can resolve dispute
-disputeRoutes.patch('/:id/resolve', isAuthenticated, checkRole(['admin', 'landlord']), disputeController.resolveDispute);
+disputeRoutes.patch('/:id/resolve', isAuthenticated, checkRole(['ADMIN', 'AGENT']), disputeController.resolveDispute);
 
 
 export default disputeRoutes;

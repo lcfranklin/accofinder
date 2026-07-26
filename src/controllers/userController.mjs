@@ -112,7 +112,7 @@ export const promoteUser = asyncHandler(async (req, res, next) => {
         return sendResponse(res, 404, false, "New role not found");
         }
 
-        const allowedRoles = ['AGENT', 'LANDLORD', 'CLIENT', 'STUDENT', 'ADMIN'];
+        const allowedRoles = ['AGENT', 'CLIENT', 'ADMIN'];
 
         if (!allowedRoles.includes(role)) {
         return sendResponse(res, 404, false, "Invalid role");

@@ -78,7 +78,7 @@ export const getBookingById = async (req, res, next) => {
       });
     }
 
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = req.user.role === 'ADMIN';
     const isTenant = booking.tenant._id.toString() === req.user._id.toString();
     const isOwner = booking.owner._id.toString() === req.user._id.toString();
 
@@ -294,7 +294,7 @@ export const deleteBooking = async (req, res, next) => {
       });
     }
 
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = req.user.role === 'ADMIN';
     const isTenant = booking.tenant.toString() === req.user._id.toString();
 
     if (!isAdmin && !isTenant) {

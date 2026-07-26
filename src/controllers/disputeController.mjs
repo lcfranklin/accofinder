@@ -11,11 +11,11 @@ export const getDisputes = async (req, res, next) => {
     let query = {};
 
     //if user  admin , they  see all disputes they are part of
-    if(userRole == 'admin'){
+    if(userRole == 'ADMIN'){
       query = {};
     }
 
-    if(userRole !== 'admin'){
+    if(userRole !== 'ADMIN'){
       query = { $or: [{reporter: userId}, {reported: userId}]};
     }
     const disputes = await Dispute.find({});
