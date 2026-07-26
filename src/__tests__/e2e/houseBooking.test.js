@@ -38,7 +38,7 @@ describe('House Booking API E2E', () => {
       });
     adminToken = adminRes.body.data.accessToken;
     adminUser = adminRes.body.data;
-    await User.findByIdAndUpdate(adminUser._id, { role: 'admin' });
+    await User.findByIdAndUpdate(adminUser._id, { role: 'ADMIN' });
 
     // Create client user
     const clientRes = await request(app)
@@ -84,7 +84,7 @@ describe('House Booking API E2E', () => {
     await request(app)
       .patch(`/api/users/${landlordUser._id}/promote`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ role: 'landlord' });
+      .send({ role: 'AGENT' });
 
     // Create a house listing
     testHouse = await House.create({

@@ -6,7 +6,7 @@ import paychangu from '../utils/paychangu.mjs';
 
 const CUURRENCY = process.env.PAYCHANGU_CURRENCY || 'MWK';
 
-export const processMobilePayment = asyncHandler(async (req, res, next) => {
+export const processMobilePayment = asyncHandler(async (req, res) => {
   const { phoneNumber, bookingId, amount, operatorRefId } = req.body;
   const clientId = req.user._id;
   

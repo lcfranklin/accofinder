@@ -21,7 +21,7 @@ router.get(
 router.post(
   '/process/:bookingId',
   isAuthenticated,
-  checkRole(['STUDENT', 'CITIZEN']),
+  checkRole(['CLIENT']),
   validateRequest(processMobilePaymentSchema),
   processMobilePayment
 );

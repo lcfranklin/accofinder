@@ -157,18 +157,18 @@ describe('Users API E2E', () => {
       const res = await request(app)
         .patch(`/api/users/${testUserId}/promote`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ role: 'LANDLORD' });
+        .send({ role: 'AGENT' });
 
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.message).toContain(`User role changed to LANDLORD`);
+      expect(res.body.message).toContain(`User role changed to AGENT`);
     });
 
     it('should return 403 when non-admin tries to promote', async () => {
       const res = await request(app)
         .patch(`/api/users/${testUserId}/promote`)
         .set('Authorization', `Bearer ${clientToken}`)
-        .send({ role: 'admin' });
+        .send({ role: 'ADMIN' });
 
       expect(res.statusCode).toBe(403);
     });

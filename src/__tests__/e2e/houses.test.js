@@ -6,7 +6,7 @@ jest.mock("../../models/House.mjs");
 
 jest.mock("../../middleware/authMiddleware.mjs", () => ({
   isAuthenticated: jest.fn((req, res, next) => {
-    req.user = { _id: "6a057ca99d9d0fbeb233073d", role: "admin" };
+    req.user = { _id: "6a057ca99d9d0fbeb233073d", role: "ADMIN" };
     next();
   }),
   checkRole: () => (req, res, next) => next(),

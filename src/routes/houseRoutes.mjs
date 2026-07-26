@@ -12,7 +12,7 @@ houseRoutes.post('/create', houseController.createHouse);
 houseRoutes.post(
   '/',
   isAuthenticated,
-  checkRole(['admin', 'landlord']),
+  checkRole(['ADMIN', 'AGENT']),
   validateRequest(createHouseSchema),
   houseController.createHouse,
 );
@@ -20,14 +20,14 @@ houseRoutes.get('/:id', houseController.getHouseById);
 houseRoutes.put(
   '/:id',
   isAuthenticated,
-  checkRole(['admin', 'landlord']),
+  checkRole(['ADMIN', 'AGENT']),
   validateRequest(updateHouseSchema),
   houseController.updateHouse,
 );
 houseRoutes.delete(
   '/:id',
   isAuthenticated,
-  checkRole(['admin', 'landlord']),
+  checkRole(['ADMIN', 'AGENT']),
   houseController.deleteHouse,
 );
 
