@@ -17,9 +17,9 @@ const hostelSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    gender: {
-      type: String,
-      enum: ['male', 'female', 'mixed'],
+    gender:{
+        type: String,
+        enum: ['MALE', 'FEMALE', 'MIXED'],
     },
     totalRooms: {
       type: Number,

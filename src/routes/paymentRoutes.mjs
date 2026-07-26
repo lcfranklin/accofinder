@@ -1,46 +1,41 @@
-// import express from 'express';
-// import { createCheckoutSession } from '../controllers/paymentController.mjs';
-
-// const paymentRoutes = express.Router();
-
-// paymentRoutes.post('/create-checkout-session', createCheckoutSession);
-
-// export default paymentRoutes;
 import express from 'express';
 import {
-  getPaymentsByUser,
-  initPayment,
-  webhookHandler,
-  verify,
-  cancelPayment,
+  processMobilePayment,
+  getSupportedMomoOperators,
+  verifyMobilePayment,
+  getSingleChargeDetails,
 } from '../controllers/paymentController.mjs';
 
 import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
+import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
+import { processMobilePaymentSchema } from '../validators/paymentSchema.mjs';
 
 const router = express.Router();
 
-// Create a checkout session (returns checkout_url)
-router.post('/init', isAuthenticated, checkRole(['client']), initPayment);
-
-// for verifying the paymnet.
-router.get('/verify', verify);
-
-// for verifying the paymnet.
-router.post('/cancel', cancelPayment);
-
-//Webhook (asynchronous). IMPORTANT: raw body ONLY for this route.(for receiving notificaton)
-router.post(
-  '/webhook',
-  express.raw({ type: 'application/json' }),
-  webhookHandler,
+router.get(
+  '/operators',
+  isAuthenticated,
+  getSupportedMomoOperators
 );
 
-// Get user (cleint) payments
-router.get(
-  '/user/:userId',
+router.post(
+  '/process/:bookingId',
   isAuthenticated,
-  checkRole(['client']),
-  getPaymentsByUser,
+  checkRole(['CLIENT']),
+  validateRequest(processMobilePaymentSchema),
+  processMobilePayment
+);
+
+router.get(
+  '/verify/:chargeId',
+  isAuthenticated,
+  verifyMobilePayment
+);
+
+router.get(
+  '/details/:chargeId',
+  isAuthenticated,
+  getSingleChargeDetails
 );
 
 export default router;

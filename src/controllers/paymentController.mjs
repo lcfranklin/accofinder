@@ -1,258 +1,143 @@
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import Booking from '../models/Booking.mjs';
-import { pcFetch } from '../utils/helpers.mjs';
 import Payment from "../models/Payment.mjs";
+import { v4 as uuidv4 } from 'uuid';
+import paychangu from '../utils/paychangu.mjs';
 
-const WEbOOK_SECRET = process.env.PAYCHANGU_SECRET_KEY;
-const CUURRENCY = process.env.PAYCHANGU_CURRENCY || 'MKW';
-const BACKEND_URL = process.env.BACKEND_URL 
-const FRONTEND_URL = process.env.FRONTEND_URL
-const CALLBACK_URL = process.env.CALLBACK_URL
+const CUURRENCY = process.env.PAYCHANGU_CURRENCY || 'MWK';
 
+export const processMobilePayment = asyncHandler(async (req, res) => {
+  const { phoneNumber, bookingId, amount, operatorRefId } = req.body;
+  const clientId = req.user._id;
+  
+  const finalBookingId = bookingId || req.params.bookingId;
+  const tx_ref = uuidv4();
 
-export const initPayment = async (req, res) => {
-  try{
-    const {bookingId, bookingFee} = req.body;
-    const clientId = req.user._id;
-
-    const amount = bookingFee;
-    tx_ref = `PS_${findBookingData._id}_${Date.now()}`;
-
-    if(!bookingId || !bookingFee){
-      return res.status(400).json({
-        success: false,
-        message: "passportID and fee is required"
-      });
-    }
-
-    const findBookingData = await Booking.findById(bookingId)
-      .populate({
-        path: "client",
-        populate:{
-          path: "House",
-        }
-      });
-
-    if(!findBookingData){
-      return res.status(404).json({
-        status: "failed",
-        message: "Booking not found"
-      });
-    } 
-    if(String(clientId)!== String(findBookingData.client._id)){ 
-      return res.status(401).json({
-        status: "failed",
-        message: "Unauthorized to make payment for this booking"
-      });
-    }
-
-    const payload = {
-      amount: String(amount),
-      currency: CUURRENCY,
-      tx_ref,
-      email: findBookingData.client?.email,
-      first_name: findBookingData.client?.firstName,
-      last_name: findBookingData.client?.lastName,
-      callback_url: CALLBACK_URL,
-      return_url: FRONTEND_URL,
-      tx_ref,
-    };
-
-    //calling PayChangu API
-    const response = await pcFetch("/payment",{
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-
-    const checkoutUrl = response?.data?.checkout_url;
-    if(!checkoutUrl) throw new Error("No checkout_url return by PayChangu") 
-
-    //saving
-    const newPayment = new Payment({
-      client: clientId,
-      amount: amount,
-      currency: CUURRENCY,
-      paymentMethod: 'card',
-      status: 'pending',
-      paymentStatus: 'pending',
-      paymentRef: tx_ref,
-      transactionId: tx_ref,
-      createdAt: new Date(),
-    });
-
-    await newPayment.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Checkout session created",
-      checkout_url: checkoutUrl,
-      tx_ref,
-      paymentId: newPayment._id
-    });
-
-  }catch (error){
-   next(error)
- }
-};
-//to verify payment
-export const verify  =  async (req, res, next)=>{
-  try{
-    const {tx_ref, status} = req.query;
-    if(!tx_ref){
-      return res.status(404).json({
-        success: false,
-        message: "tx_ref missing"
-      });
-    }
-
-    const verifyResponse = await pcFetch(`/verify/payment/${encodeURIComponet(tx_ref)}`,{
-      method: "GET"
-    });
-
-    const isSuccess = verifyResponse?.status === "success" && verifyResponse?.data?.status === "success";
-    const amount = verifyResponse?.data?.amount;
-    const currency = verifyResponse?.data?.currency;
-
-    const foundPayment = await Payment.findOne({paymentRef: tx_ref});
-
-    if (foundPayment){
-      if(isSuccess){
-        //verifying the amount payed via PayChangu
-        if(Number(foundPayment.amount) === Number(amount) && currency===CUURRENCY){
-          foundPayment.status = "completed";
-          foundPayment.paidAt = new Date();
-        } else{
-          foundPayment.status = "failed"
-        }
+  const findBookingData = await Booking.findById(finalBookingId)
+    .populate({
+      path: "user",
+      populate:{
+        path: "rentableUnit",
       }
-      if(verifyResponse?.data?.transaction_id){
-        foundPayment.transactionId = verifyResponse.data.transaction_id;
+    });
+
+  if(!findBookingData){
+    return sendResponse(res, 404, false, "Booking not found");
+  } 
+  if(String(clientId)!== String(findBookingData.client._id)){  
+    return sendResponse(res, 401, false, "Unauthorized to make payment for this booking");
+  }
+  
+  const email = req.user.email || findBookingData.client?.email;
+  const first_name = req.user.name?.firstName || req.user.firstName || findBookingData.client?.name?.firstName;
+  const last_name = req.user.name?.surname || req.user.lastName || findBookingData.client?.name?.surname;
+
+  const mobile_money_operator_ref_id = operatorRefId || '20be6c20-adeb-4b5b-a7ba-0769820df4fb';
+
+  paychangu.auth(`Bearer ${process.env.PAYCHANGU_SECRET_KEY}`);
+
+  const response = await paychangu.chargeMobileMoney({
+    mobile_money_operator_ref_id,
+    mobile: phoneNumber,
+    amount: String(amount || 0),
+    email,
+    first_name,
+    last_name,
+    charge_id: tx_ref
+  });
+
+  const isSuccess = response?.status === 'success' || response?.data?.status === 'success';
+  if(!response || !isSuccess) {
+    throw new Error(response?.message || "Mobile MoneyPayment was unsuccessful");
+  }
+
+  const newPayment = new Payment({
+    client: clientId,
+    amount: amount,
+    currency: CUURRENCY,
+    paymentMethod: 'mobile_money',
+    status: 'pending',
+    paymentStatus: 'pending',
+    paymentRef: tx_ref,
+    transactionId: tx_ref,
+    createdAt: new Date(),
+  });
+
+  await newPayment.save();
+
+  return sendResponse(res, 200, true, "Mobile money payment was successful", {
+    ...response.data,
+    tx_ref,
+    paymentId: newPayment._id
+  });
+});
+
+export const getSupportedMomoOperators = asyncHandler(async (req, res, next) => {
+  paychangu.auth(`Bearer ${process.env.PAYCHANGU_SECRET_KEY}`);
+  const response = await paychangu.supportedMomoOperators();
+
+  return sendResponse(res, 200, true, "Supported mobile money operators retrieved", response?.data);
+});
+
+export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
+  const { chargeId } = req.params;
+
+  if (!chargeId) {
+    return sendResponse(res, 400, false, "chargeId is required in parameters");
+  }
+
+  paychangu.auth(`Bearer ${process.env.PAYCHANGU_SECRET_KEY}`);
+  const verifyResponse = await paychangu.verifyDirectChargeStatus({ chargeId });
+
+  const isSuccess = verifyResponse?.status === "success" || verifyResponse?.data?.status === "success";
+  const amount = verifyResponse?.data?.amount;
+  const currency = verifyResponse?.data?.currency;
+
+  const foundPayment = await Payment.findOne({ paymentRef: chargeId });
+
+  if (foundPayment) {
+    if (isSuccess) {
+      if (Number(foundPayment.amount) === Number(amount) && currency === CUURRENCY) {
+        foundPayment.status = "completed";
+        foundPayment.paymentStatus = "completed";
+        foundPayment.paidAt = new Date();
+      } else {
+        foundPayment.status = "failed";
+        foundPayment.paymentStatus = "failed";
       }
+    } else {
+      foundPayment.status = "failed";
+      foundPayment.paymentStatus = "failed";
+    }
 
-      await foundPayment.save();
+    await foundPayment.save();
 
-      if(isSuccess && foundPayment.status === "completed"){
-        //option 1. if booking references are stored in payment
-        if(foundPayment.booking){
-          await Booking.findOneAndUpdate(
-            {client: foundPayment.client},
-            {paymentStatus: "completed"},
-            {new: true},
-          );
-        }
+    if (isSuccess && foundPayment.status === "completed") {
+      if (foundPayment.booking || foundPayment.client) {
+        await Booking.findOneAndUpdate(
+          { client: foundPayment.client },
+          { paymentStatus: "completed" },
+          { new: true }
+        );
       }
     }
-    // choose either Json or  redirect
-    if(req.headers['content-type'] === 'application/json'||
-       req.headers['accept']?.includes('application/json')){
-      return res.status(200).json({
-        sucess: isSuccess,
-        verification: verifyResponse,
-        payment: foundPayment
-      });
-    } else{
-      //redirect for browser requests
-      const dest = isSuccess
-        ? `${FRONTEND_URL}/payment/success?tx_ref=${encodeURIComponent(tx_ref)}`
-        : `${FRONT_URL}/payment/failed?tx_ref=${encodeURIComponent(tx_ref)} &status=${encodeURIComponet(status || "failed")}`
-      
-      return res.status(200).json({
-        redirectURL: dest
-      })  
-    }
-
-  }catch(error){
-   next(error);
   }
-};
 
-//webhook logic
-export const webhookHandler = async(req, res, next) => {
-  try{
-      // Verify signature (HMAC-SHA256 of raw body using WEBHOOK_SECRET), header name: 'Signature'
-    /**this is was ensipired from pychangu documentation */
-    const signatureHeader = req.header("Signature") || "";
-    const raw = req.body;
-    if(WEBHOOK_SECRET){
-      console.log("No PAYCHANGU_WEBHOOK_SECRET configured");
-      return res.json(400).send("No webhook secret configured");
-    }
+  return sendResponse(res, 200, isSuccess, "Payment verification status", {
+    verification: verifyResponse?.data,
+    payment: foundPayment
+  });
+});
 
-    const crypto = await import("crypto");
-    const computed = crypto.createHmac("sha256", WEBHOOK_SECRET).update(raw).digest("hex");
-    if(computed !== signatureHeader) {
-      console.warn("Invalid webhook signature");
-      return res.status(400).send("Invalid signature");
-    }
+export const getSingleChargeDetails = asyncHandler(async (req, res, next) => {
+  const { chargeId } = req.params;
 
-    //Parse JSON after signature check
-    const event = JSON.parse(raw.toString("utf8"));
-
-
-    // Example shapes (see docs), we care about tx_ref & status
-    const txRef = event?.data?.tx_ref || event?.tx_ref;
-    const status = event?.data?.status || event?.status;
-
-    if (!txRef) return res.status(200).send("ok"); // nothing to do
-
-  } catch(error){
-    next(error)
+  if (!chargeId) {
+    return sendResponse(res, 400, false, "chargeId is required in parameters");
   }
-}
-//logic to get payment by User
-export const getPaymentsByUser = async(req, res, next) => {
-  try{
-    const clientId = req.user._id;
-    const { status } = req.query;
-    
-    //build filter object
-    const filter = {client: clientId};
-    if(status){
-      filter.status = status;
-    }
 
-    //Get all payments with population
-    const payments = await Payment.find(filter)
-      .populate({
-        path: 'client',
-        select: 'firstNam lastName email'
-      })
-      .sort({createAt: -1}) // getting newest first
-      .lean({});
+  paychangu.auth(`Bearer ${process.env.PAYCHANGU_SECRET_KEY}`);
+  const detailsResponse = await paychangu.singleChargeDetails({ chargeId });
 
-  }catch(error){
-    next(error)
-  }
-}
-
-//logic to cancel payment
-export const cancelPayment = async(req, res, next) => {
-  try{
-
-    const { paymentId } = req.params;
-    const clientId = req.user._id;
-
-    if(!paymentId){
-      return res.status(400).json({
-        success: false,
-        message: "Payment ID is required"
-      });
-    }
-
-    // find the payment
-    const payment = await Payment.findOne({
-      _id: paymentId,
-      client: clientId
-    });
-
-    if (!payment){
-      return res.status(400).json({
-        success: false,
-        message: "Payment not found or you are not authorised to cancel this payment"
-      });
-    }
-
-  } catch(error){
-    next(error)
-  }
-}
+  return sendResponse(res, 200, true, "Charge details retrieved successfully", detailsResponse?.data);
+});

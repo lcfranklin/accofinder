@@ -56,6 +56,24 @@ const getUnitOwnerId = async (unitType, unitId) => {
 export const getBookings = async (req, res, next) => {
   try {
     const bookings = await populateBooking(Booking.find());
+    const booking = await Booking.findById(bookId);
+    if (!booking) {
+      return res.status(404).json({
+        status: 'fail',
+        message: `Booking with id ${id} not found`,
+      });
+    }
+
+    const isAdmin = req.user.role === 'ADMIN';
+    const isTenant = booking.tenant._id.toString() === req.user._id.toString();
+    const isOwner = booking.owner._id.toString() === req.user._id.toString();
+
+    if (!isAdmin && !isTenant && !isOwner) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You are not authorized to view this booking',
+      });
+    }
 
     res.status(200).json({
       status: 'success',
@@ -308,7 +326,7 @@ export const deleteBooking = async (req, res, next) => {
         .json({ status: 'fail', message: `Booking with id ${id} not found` });
     }
 
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = req.user.role === 'ADMIN';
     const isTenant = booking.tenant.toString() === req.user._id.toString();
 
     if (!isAdmin && !isTenant) {

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DisputeStatus } from './enums/DisputeStatus.mjs';
 
 const disputeSchema = new mongoose.Schema({
   raisedBy: {
@@ -20,8 +21,8 @@ const disputeSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['open', 'under_review', 'resolved', 'closed'],
-    default: 'open',
+    enum: Object.values(DisputeStatus),
+    default: DisputeStatus.OPEN,
   },
   title: {
     type: String,

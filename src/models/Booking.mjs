@@ -12,7 +12,12 @@ const bookingSchema = new mongoose.Schema(
   rentableUnit: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
-    refPath: "unitType"
+    refPath: 'rentableUnitType'
+  },
+  rentableUnitType: {
+    type: String,
+    required: true,
+    enum: ['HOUSE', 'ROOM', 'BED']
   },
 
   unitType: {
@@ -160,7 +165,6 @@ bookingSchema.methods.cancel = async function (reason) {
   await this.save();
   return this;
 };
-
 
 
 const Booking = mongoose.model("Booking", bookingSchema);

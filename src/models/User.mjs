@@ -86,17 +86,14 @@ userSchema.virtual('fullName').get(function() {
   return `${this.firstName} ${this.lastName}`;
 });
 
-userSchema.methods.isLandlord = function() {
-  return this.role === UserRole.LANDLORD;
-};
-
 userSchema.methods.isAgent = function() {
   return this.role === UserRole.AGENT;
 };
 
-userSchema.methods.isStudent = function() {
-  return this.role === UserRole.STUDENT;
+userSchema.methods.isClient = function() {
+  return this.role === UserRole.CLIENT;
 };
+
 
 const User = mongoose.model('User', userSchema);
 export default User;

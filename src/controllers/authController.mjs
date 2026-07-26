@@ -23,7 +23,7 @@ export const registerUser = asyncHandler(async (req, res, next) => {
     email,
     password,
     residentialAddress,
-    role: 'client',
+    role: 'CLIENT',
   });
 
   if (user) {

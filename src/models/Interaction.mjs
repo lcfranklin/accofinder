@@ -13,7 +13,7 @@ const interactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['view', 'click', 'favorite', 'search'],
+    enum: ['VIEW', 'CLICK', 'FAVORITE', 'SEARCH'],
     required: true,
   },
   metadata: {

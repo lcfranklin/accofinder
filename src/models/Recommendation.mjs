@@ -19,8 +19,8 @@ const recommendationSchema = new mongoose.Schema({
   },
   recommendationType: {
     type: String,
-    enum: ['content-based', 'collaborative', 'hybrid'],
-    default: 'content-based',
+    enum: ['CONTENT-BASED', 'COLLABORATIVE', 'HYBRID'],
+    default: 'CONTENT-BASED',
   },
   metadata: {
     matchedFeatures: [String],
