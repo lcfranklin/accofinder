@@ -7,10 +7,11 @@ import { generateAccessToken, generateRefreshToken } from '../utils/jwt.mjs';
  * Register a new user
  */
 export const registerUser = asyncHandler(async (req, res, next) => {
-  const { name, email, password, confirmPassword, residentialAddress } = req.validatedData;
+  const { name, email, password, confirmPassword, residentialAddress } =
+    req.validatedData;
 
   if (password !== confirmPassword) {
-    return sendResponse(res, 400, false, "Passwords do not match");
+    return sendResponse(res, 400, false, 'Passwords do not match');
   }
 
   const userExists = await User.findOne({ email });
@@ -36,17 +37,22 @@ export const registerUser = asyncHandler(async (req, res, next) => {
       const accessToken = generateAccessToken(user);
       const refreshToken = generateRefreshToken(user);
 
-      sendResponse(res, 201, true, 'User registered and logged in successfully', {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        residentialAddress: user.residentialAddress,
-        role: user.role,
-        accessToken,
-        refreshToken,
-      });
+      sendResponse(
+        res,
+        201,
+        true,
+        'User registered and logged in successfully',
+        {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          residentialAddress: user.residentialAddress,
+          role: user.role,
+          accessToken,
+          refreshToken,
+        },
+      );
     });
-
   } else {
     sendResponse(400, false, 'Invalid user data');
   }
@@ -80,7 +86,6 @@ export const loginUser = (req, res, next) => {
         refreshToken,
       });
     });
-
   })(req, res, next);
 };
 
@@ -105,7 +110,7 @@ export const logoutUser = (req, res, next) => {
   req.logout((err) => {
     if (err) return next(err);
     req.session.destroy();
-    res.clearCookie('connect.sid'); 
+    res.clearCookie('connect.sid');
     sendResponse(res, 200, true, 'Logged out successfully');
   });
 };
@@ -141,18 +146,42 @@ export const refreshAccessToken = async (req, res) => {
   try {
     const decoded = verifyRefreshToken(refreshToken);
     const user = await User.findById(decoded.sub);
-    
+
     if (!user) {
-      return sendResponse(res, 401, false, 'Invalid refresh token: User not found');
+      return sendResponse(
+        res,
+        401,
+        false,
+        'Invalid refresh token: User not found',
+      );
     }
 
     const newAccessToken = generateAccessToken(user);
-    
+
     sendResponse(res, 200, true, 'Access token refreshed successfully', {
-      accessToken: newAccessToken
+      accessToken: newAccessToken,
     });
   } catch (error) {
     return sendResponse(res, 401, false, 'Invalid or expired refresh token');
   }
 };
+//verify-email
 
+import User from '../models/User.mjs'; // Adjust path to match your project
+
+export const checkEmail = async (req, res, next) => {
+  try {
+    const { email } = req.query;
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.exists({ email: normalizedEmail });
+
+    return res.status(200).json({
+      success: true,
+      exists: Boolean(existingUser),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
