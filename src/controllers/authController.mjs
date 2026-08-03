@@ -167,8 +167,6 @@ export const refreshAccessToken = async (req, res) => {
 };
 //verify-email
 
-import User from '../models/User.mjs'; // Adjust path to match your project
-
 export const checkEmail = async (req, res, next) => {
   try {
     const { email } = req.query;
