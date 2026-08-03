@@ -3,7 +3,6 @@ import passport from 'passport';
 import {
   registerUser,
   loginUser,
-  logoutUser,
   getMe,
   googleCallback,
   refreshAccessToken,
