@@ -8,7 +8,7 @@ const CUURRENCY = process.env.PAYCHANGU_CURRENCY || 'MWK';
 
 export const processMobilePayment = asyncHandler(async (req, res) => {
   const { phoneNumber, bookingId, amount, operatorRefId } = req.body;
-  const clientId = req.user._id;
+  const clientId = req.params.id;
   
   const finalBookingId = bookingId || req.params.bookingId;
   const tx_ref = uuidv4();
@@ -16,6 +16,7 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
   const findBookingData = await Booking.findById(finalBookingId)
     .populate({
       path: "user",
+      strictPopulate:false,
       populate:{
         path: "rentableUnit",
       }
@@ -24,13 +25,13 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
   if(!findBookingData){
     return sendResponse(res, 404, false, "Booking not found");
   } 
-  if(String(clientId)!== String(findBookingData.client._id)){  
-    return sendResponse(res, 401, false, "Unauthorized to make payment for this booking");
-  }
+  // if(String(clientId)!== String(findBookingData.client._id)){  
+  //   return sendResponse(res, 401, false, "Unauthorized to make payment for this booking");
+  // }
   
-  const email = req.user.email || findBookingData.client?.email;
-  const first_name = req.user.name?.firstName || req.user.firstName || findBookingData.client?.name?.firstName;
-  const last_name = req.user.name?.surname || req.user.lastName || findBookingData.client?.name?.surname;
+  // const email = req.user.email || findBookingData.client?.email;
+  // const first_name = req.user.name?.firstName || req.user.firstName || findBookingData.client?.name?.firstName;
+  // const last_name = req.user.name?.surname || req.user.lastName || findBookingData.client?.name?.surname;
 
   const mobile_money_operator_ref_id = operatorRefId || '20be6c20-adeb-4b5b-a7ba-0769820df4fb';
 
@@ -40,9 +41,9 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
     mobile_money_operator_ref_id,
     mobile: phoneNumber,
     amount: String(amount || 0),
-    email,
-    first_name,
-    last_name,
+    // email,
+    // first_name,
+    // last_name,
     charge_id: tx_ref
   });
 
@@ -56,8 +57,7 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
     amount: amount,
     currency: CUURRENCY,
     paymentMethod: 'mobile_money',
-    status: 'pending',
-    paymentStatus: 'pending',
+    status: 'INITIATED',
     paymentRef: tx_ref,
     transactionId: tx_ref,
     createdAt: new Date(),

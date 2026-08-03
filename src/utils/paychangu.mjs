@@ -56,7 +56,7 @@ class PayChanguSDK {
   }
 
   async chargeMobileMoney(body) {
-    return this._fetch('/mobile-money/payments/charge', {
+    return this._fetch('/mobile-money/payments/initialize', {
       method: 'POST',
       body: JSON.stringify(body)
     });

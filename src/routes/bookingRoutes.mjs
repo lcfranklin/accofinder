@@ -9,8 +9,8 @@ const houseBookingRoutes = express.Router();
 
 houseBookingRoutes.get(
   '/',
-  isAuthenticated,
-  checkRole(['ADMIN']),
+  // isAuthenticated,
+  // checkRole(['ADMIN']),
   bookingController.getBookings,
 );
 
