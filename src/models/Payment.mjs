@@ -21,7 +21,7 @@ const paymentSchema = new Schema({
     },
     paymentMethod: {
         type: String,
-        enum: ['card', 'TNM', 'Airtel'],
+        enum: ['card', 'mobile_money'],
         default: 'card'
     },
     status: {
