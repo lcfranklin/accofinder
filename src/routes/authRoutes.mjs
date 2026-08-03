@@ -7,6 +7,7 @@ import {
   googleCallback,
   refreshAccessToken,
   checkEmail,
+  logoutUser,
 } from '../controllers/authController.mjs';
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
 import { registerUserSchema } from '../validators/registerUserSchema.mjs';
