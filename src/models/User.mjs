@@ -1,99 +1,62 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv'
-import { UserRole } from './enums/UserRole.mjs';
 
-dotenv.config();
-
-const userSchema = new mongoose.Schema({
-  name: {
-    firstName: {
-      type: String,
-      required: true,
-    },
-    surname: {
-      type: String,
-      required: true,
-    }
-  },
-  profileImage: {
-    type: String,
-    default: null
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-  },
-  residentialAddress: {
-    district: { type: String, required: false, trim: true },
-    traditionalAuthority: { type: String, required: false, trim: true },
-    village: { type: String, required: false, trim: true },
-  },
-  password: {
-    type: String,
-    required: function() { return !this.googleId; },
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  isEmailVerified: {
-    type: Boolean,
-    default: false
-  },
-  googleId: {
-    type: String,
-    unique: true,
-    sparse: true, 
-  },
-  role: {
-    type: String,
-    enum: Object.values(UserRole),
-    required: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  }
-});
-
-userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+const baseOptions = {
+  discriminatorKey: 'role',
+  collection: 'users',
+  timestamps: true,
 };
 
-userSchema.pre('save', async function() {
-  // Only hash password if it exists and is modified
-  if (!this.password || !this.isModified('password')) {
-  }
-  
-  try {
-    const salt = await bcrypt.genSalt(Number(process.env.SALT_ROUNDS) || 10);
-    this.password = await bcrypt.hash(this.password, salt);
-  } catch (error) {
-    console.log("Error", error);
-  }
-});
+// Base User Schema
+const userSchema = new mongoose.Schema(
+  {
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    phone: { type: String, required: true },
+    password: { type: String, required: true },
+  },
+  baseOptions,
+);
 
-// Indexes
-// userSchema.index({ email: 1 });
-userSchema.index({ role: 1 });
-userSchema.index({ isActive: 1 });
-
-// Virtual for full name
-userSchema.virtual('fullName').get(function() {
+// Virtual property for full name
+userSchema.virtual('name').get(function () {
   return `${this.firstName} ${this.lastName}`;
 });
 
-userSchema.methods.isAgent = function() {
-  return this.role === UserRole.AGENT;
-};
+export const User = mongoose.model('User', userSchema);
 
-userSchema.methods.isClient = function() {
-  return this.role === UserRole.CLIENT;
-};
+// Agent Discriminator
+export const Agent = User.discriminator(
+  'Agent',
+  new mongoose.Schema({
+    employeeId: { type: String, required: true, unique: true },
+    assignedArea: { type: String, required: true },
+    commissionRate: { type: Number, required: true, default: 0.0 },
+    isActive: { type: Boolean, default: true },
+  }),
+);
 
+// Client Discriminator
+export const Client = User.discriminator(
+  'Client',
+  new mongoose.Schema({
+    isStudent: { type: Boolean, default: false },
+    preferredLocation: { type: String, default: '' },
+    budgetMin: { type: Number, default: 0 },
+    budgetMax: { type: Number, default: 0 },
+  }),
+);
 
-const User = mongoose.model('User', userSchema);
-export default User;
+// Landlord Discriminator
+export const Landlord = User.discriminator(
+  'Landlord',
+  new mongoose.Schema({
+    paymentDetails: { type: String, required: true },
+  }),
+);
