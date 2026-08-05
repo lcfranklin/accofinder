@@ -1,27 +1,10 @@
 import mongoose from 'mongoose';
-import RentableUnit from './RentableUnit.mjs';
+import Property from './Property.mjs';
 
 const houseSchema = new mongoose.Schema({
-  property: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Property',
-    required: true
-  },
-  title: {
-    type: String,
-    required: true,
-  },
-  description: {
-    type: String,
-  },
   costCategory: {
     type: String,
     enum: ['LOW_COST', 'MEDIUM_COST', 'HIGH_COST'],
-    required: true,
-  },
-  owner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
     required: true,
   },
   numberOfRooms: {
@@ -69,7 +52,6 @@ const houseSchema = new mongoose.Schema({
 });
 
 // Indexes
-houseSchema.index({ property: 1 });
 houseSchema.index({ isAvailable: 1 });
 houseSchema.index({ monthlyRent: 1 });
 
@@ -91,5 +73,5 @@ houseSchema.methods.getRentableUnitData = function() {
 };
 
 
-const House = mongoose.models.House || RentableUnit.discriminator('House', houseSchema);
+const House = mongoose.models.House || Property.discriminator('House', houseSchema);
 export default House;

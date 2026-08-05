@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import RentableUnit from './RentableUnit.mjs';
 
 const bedSchema = new mongoose.Schema({
     bedNumber: {
@@ -88,5 +87,5 @@ bedSchema.methods.releaseBed = async function() {
     return this;
 };
 
-const Bed = mongoose.models.Bed || RentableUnit.discriminator('Bed', bedSchema);
+const Bed = mongoose.models.Bed || mongoose.model('Bed', bedSchema);
 export default Bed;

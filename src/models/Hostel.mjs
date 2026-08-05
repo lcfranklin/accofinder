@@ -1,21 +1,7 @@
 import mongoose from "mongoose";
-import RentableUnit from "./RentableUnit.mjs";
+import Property from "./Property.mjs";
 
 const hostelSchema = new mongoose.Schema({
-    property: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Property',
-        required: true
-    },
-    title: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    description: {
-        type: String,
-        trim: true
-    },
     gender:{
         type: String,
         enum: ['MALE', 'FEMALE', 'MIXED'],
@@ -46,7 +32,6 @@ const hostelSchema = new mongoose.Schema({
 });
 
 // Indexes
-hostelSchema.index({ property: 1 });
 hostelSchema.index({ isActive: 1 });
 
 // Virtuals
@@ -80,5 +65,5 @@ hostelSchema.methods.getTotalAvailableBeds = async function() {
     return totalBeds;
 };
 
-const Hostel = mongoose.model.Hostel || RentableUnit.discriminator('Hostel', hostelSchema);
+const Hostel = mongoose.models.Hostel || Property.discriminator('Hostel', hostelSchema);
 export default Hostel;

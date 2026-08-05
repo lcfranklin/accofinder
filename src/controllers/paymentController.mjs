@@ -3,8 +3,9 @@ import Booking from '../models/Booking.mjs';
 import Payment from "../models/Payment.mjs";
 import { v4 as uuidv4 } from 'uuid';
 import paychangu from '../utils/paychangu.mjs';
+import { PaymentStatus } from '../models/enums/PaymentStatus.mjs';
 
-const CUURRENCY = process.env.PAYCHANGU_CURRENCY || 'MWK';
+const CUURRENCY = process.env.PAYCHANGU_CURRENCY || 'MK';
 
 export const processMobilePayment = asyncHandler(async (req, res) => {
   const { phoneNumber, bookingId, amount, operatorRefId } = req.body;
@@ -25,13 +26,13 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
   if(!findBookingData){
     return sendResponse(res, 404, false, "Booking not found");
   } 
-  // if(String(clientId)!== String(findBookingData.client._id)){  
-  //   return sendResponse(res, 401, false, "Unauthorized to make payment for this booking");
-  // }
+  if(String(clientId)!== String(findBookingData.client._id)){  
+    return sendResponse(res, 401, false, "Unauthorized to make payment for this booking");
+  }
   
-  // const email = req.user.email || findBookingData.client?.email;
-  // const first_name = req.user.name?.firstName || req.user.firstName || findBookingData.client?.name?.firstName;
-  // const last_name = req.user.name?.surname || req.user.lastName || findBookingData.client?.name?.surname;
+  const email = req.user.email || findBookingData.client?.email;
+  const first_name = req.user.name?.firstName || req.user.firstName || findBookingData.client?.name?.firstName;
+  const last_name = req.user.name?.surname || req.user.lastName || findBookingData.client?.name?.surname;
 
   const mobile_money_operator_ref_id = operatorRefId || '20be6c20-adeb-4b5b-a7ba-0769820df4fb';
 
@@ -41,9 +42,9 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
     mobile_money_operator_ref_id,
     mobile: phoneNumber,
     amount: String(amount || 0),
-    // email,
-    // first_name,
-    // last_name,
+    email,
+    first_name,
+    last_name,
     charge_id: tx_ref
   });
 
@@ -98,25 +99,22 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
   if (foundPayment) {
     if (isSuccess) {
       if (Number(foundPayment.amount) === Number(amount) && currency === CUURRENCY) {
-        foundPayment.status = "completed";
-        foundPayment.paymentStatus = "completed";
+        foundPayment.status = PaymentStatus.SUCCESS;
         foundPayment.paidAt = new Date();
       } else {
-        foundPayment.status = "failed";
-        foundPayment.paymentStatus = "failed";
+        foundPayment.status = PaymentStatus.FAILED;
       }
     } else {
-      foundPayment.status = "failed";
-      foundPayment.paymentStatus = "failed";
+      foundPayment.status = PaymentStatus.FAILED;
     }
 
     await foundPayment.save();
 
-    if (isSuccess && foundPayment.status === "completed") {
+    if (isSuccess && foundPayment.status === PaymentStatus.SUCCESS) {
       if (foundPayment.booking || foundPayment.client) {
         await Booking.findOneAndUpdate(
           { client: foundPayment.client },
-          { paymentStatus: "completed" },
+          { status: PaymentStatus.SUCCESS },
           { new: true }
         );
       }
