@@ -2,7 +2,9 @@ import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import User from '../models/User.mjs';
 import passport from 'passport';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.mjs';
-
+import crypto from 'crypto';
+import Otp from '../models/Otp.mjs';
+import sendEmail from '../utils/sendEmail.mjs';
 /**
  * Register a new user
  */
@@ -183,3 +185,88 @@ export const checkEmail = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Request an OTP
+ */
+export const requestOtp = asyncHandler(async (req, res) => {
+  const { email, purpose } = req.body;
+  if (!email || !purpose) {
+    return sendResponse(res, 400, false, "Email and purpose are required");
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    return sendResponse(res, 404, false, "User not found");
+  }
+
+  // Invalidate any existing PENDING OTPs for this user and purpose
+  await Otp.updateMany(
+    { user: user._id, purpose: purpose, status: "PENDING" },
+    { $set: { status: "EXPIRED" } }
+  );
+
+  const code = crypto.randomInt(100000, 999999).toString();
+  const expiresAt = new Date();
+  expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 minutes expiry
+
+  const otp = new Otp({
+    user: user._id,
+    code,
+    purpose,
+    status: "PENDING",
+    expiresAt,
+  });
+
+  await otp.save();
+
+  // Send OTP via email
+  const emailRes = await sendEmail(
+    user.email,
+    `Your OTP for ${purpose}`,
+    `<p>Your OTP code is: <strong>${code}</strong>. It will expire in 10 minutes.</p>`
+  );
+
+  if (emailRes.status !== 200) {
+    return sendResponse(res, 500, false, "Failed to send OTP email");
+  }
+
+  sendResponse(res, 200, true, "OTP sent successfully",otp.code);
+});
+
+/**
+ * Verify an OTP
+ */
+export const verifyOtp = asyncHandler(async (req, res) => {
+  const { email, code, purpose } = req.body;
+  if (!email || !code || !purpose) {
+    return sendResponse(res, 400, false, "Email, code, and purpose are required");
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    return sendResponse(res, 404, false, "User not found");
+  }
+
+  const otp = await Otp.findOne({
+    user: user._id,
+    code,
+    purpose,
+    status: "PENDING",
+  });
+
+  if (!otp) {
+    return sendResponse(res, 400, false, "Invalid OTP");
+  }
+
+  if (otp.expiresAt < new Date()) {
+    otp.status = "EXPIRED";
+    await otp.save();
+    return sendResponse(res, 400, false, "OTP has expired");
+  }
+
+  otp.status = "USED";
+  await otp.save();
+
+  sendResponse(res, 200, true, "OTP verified successfully");
+});
