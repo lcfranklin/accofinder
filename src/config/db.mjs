@@ -35,7 +35,7 @@ const connectDB = async () => {
             
             // Only create admin in non-test environment
             if (process.env.NODE_ENV !== 'test') {
-                //await createAdmin();
+                await createAdmin();
             }
         }
         
@@ -57,7 +57,7 @@ export const createAdmin = async () => {
     const adminPassword = process.env.ADMIN_PASSWORD
 
     try {
-        const existingAdmin = await User.findOne({ role: "admin" })
+        const existingAdmin = await User.findOne({ role: "ADMIN" })
         if (existingAdmin) {
         console.log("admin already exists")
         return
@@ -67,7 +67,7 @@ export const createAdmin = async () => {
         console.log("this user will be promoted to admin role :",existingUser);
 
         if (existingUser) {
-        existingUser.role = "admin"
+        existingUser.role = "ADMIN"
         await existingUser.save()
         console.log("Existing user promoted to admin")
         return
@@ -78,9 +78,14 @@ export const createAdmin = async () => {
             firstName: "admin",
             surname:"admin"
         },
+        residentialAddress:{
+            district:"Lilongwe",
+            traditionalAthority:"Wolf Assassin",
+            village: "Kang"
+        },
         email: adminEmail,
         password: adminPassword,
-        role: "admin",
+        role: "ADMIN",
         })
 
         console.log("admin account created:", admin.email)
