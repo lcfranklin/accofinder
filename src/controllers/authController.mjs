@@ -191,8 +191,20 @@ export const checkEmail = async (req, res, next) => {
  */
 export const requestOtp = asyncHandler(async (req, res) => {
   const { email, purpose } = req.body;
+  
+  const EMAIL_REGEX = /^(?=[a-zA-Z0-9][a-zA-Z0-9._%+-]*@[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,})[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const isValidEmail = EMAIL_REGEX.test(email);
+
   if (!email || !purpose) {
     return sendResponse(res, 400, false, "Email and purpose are required");
+  }
+
+  if (!isValidEmail) {
+    return sendResponse(res, 400, false, "Invalid email format");
+  }
+
+  if (!["registration", "login", "password_reset"].includes(purpose)) {
+    return sendResponse(res, 400, false, "Invalid purpose");
   }
 
   const user = await User.findOne({ email });
@@ -223,11 +235,12 @@ export const requestOtp = asyncHandler(async (req, res) => {
   // Send OTP via email
   const emailRes = await sendEmail(
     user.email,
-    `Your OTP for ${purpose}`,
-    `<p>Your OTP code is: <strong>${code}</strong>. It will expire in 10 minutes.</p>`
+    code,
+    purpose
   );
 
-  if (emailRes.status !== 200) {
+  if (!emailRes) {
+    console.log("Failed to send OTP email with status: " + emailRes);
     return sendResponse(res, 500, false, "Failed to send OTP email");
   }
 
