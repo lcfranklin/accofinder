@@ -1,12 +1,12 @@
 export default {
-  testEnvironment: "node",
+  testEnvironment: 'node',
   transform: {
-    "^.+\\.m?js$": "babel-jest"
+    '^.+\\.m?js$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    "node_modules/(?!(uuid)/)"  
+    'node_modules/(?!(@messagebird/sdk|standardwebhooks|uuid)/)',
   ],
   testTimeout: 60000,
-  preset: "@shelf/jest-mongodb",
-  setupFilesAfterEnv: ["./jest.setup.js"] 
-}
+  preset: '@shelf/jest-mongodb',
+  setupFilesAfterEnv: ['./jest.setup.js'],
+};
