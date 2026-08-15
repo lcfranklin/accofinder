@@ -6,15 +6,13 @@ import { UserRole } from './enums/UserRole.mjs';
 dotenv.config();
 
 const userSchema = new mongoose.Schema({
-  name: {
-    firstName: {
-      type: String,
-      required: true,
-    },
-    surname: {
-      type: String,
-      required: true,
-    },
+  firstName: {
+    type: String,
+    required: true,
+  },
+  surname: {
+    type: String,
+    required: true,
   },
   profileImage: {
     type: String,
@@ -28,7 +26,7 @@ const userSchema = new mongoose.Schema({
   },
   residentialAddress: {
     type: String,
-    require: true,
+    required: true,
   },
   password: {
     type: String,

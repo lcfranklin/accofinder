@@ -1,21 +1,18 @@
 import Joi from 'joi';
 
 export const registerUserSchema = Joi.object({
-  name: Joi.object({
-    firstName: Joi.string().trim().min(2).max(100).required().messages({
-      'any.required': 'First name is required',
-      'string.empty': 'First name is required',
-      'string.min': 'First name must be at least 2 characters long',
-      'string.max': 'First name cannot exceed 100 characters',
-    }),
-
-    surname: Joi.string().trim().min(2).max(100).required().messages({
+  firstName: Joi.string().trim().min(2).max(100).required().messages({
+    'any.required': 'First name is required',
+    'string.empty': 'First name is required',
+    'string.min': 'First name must be at least 2 characters long',
+    'string.max': 'First name cannot exceed 100 characters',
+  }),
+  surname: Joi.string().trim().min(2).max(100).required().messages({
       'any.required': 'Surname is required',
       'string.empty': 'Surname is required',
       'string.min': 'Surname must be at least 2 characters long',
       'string.max': 'Surname cannot exceed 100 characters',
     }),
-  }),
 
   email: Joi.string()
     .email({ tlds: { allow: true } })

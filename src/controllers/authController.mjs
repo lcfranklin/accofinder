@@ -9,7 +9,7 @@ import sendEmail from '../utils/sendEmail.mjs';
  * Register a new user
  */
 export const registerUser = asyncHandler(async (req, res, next) => {
-  const { name, email, password, confirmPassword, residentialAddress } =
+  const { firstName, surname, email, password, confirmPassword, residentialAddress } =
     req.validatedData;
 
   if (password !== confirmPassword) {
@@ -22,7 +22,8 @@ export const registerUser = asyncHandler(async (req, res, next) => {
   }
 
   const user = await User.create({
-    name,
+    firstName,
+    surname,
     email,
     password,
     residentialAddress,
@@ -46,7 +47,8 @@ export const registerUser = asyncHandler(async (req, res, next) => {
         'User registered and logged in successfully',
         {
           _id: user._id,
-          name: user.name,
+          firstName: user.firstName,
+          surname: user.surname,
           email: user.email,
           residentialAddress: user.residentialAddress,
           role: user.role,
@@ -80,7 +82,8 @@ export const loginUser = (req, res, next) => {
 
       return sendResponse(res, 200, true, 'Login successful', {
         _id: user._id,
-        name: user.name,
+        firstName: user.firstName,
+        surname: user.surname,
         email: user.email,
         residentialAddress: user.residentialAddress,
         role: user.role,
@@ -98,7 +101,8 @@ export const googleCallback = (req, res) => {
   // Successful authentication, redirect or send response
   sendResponse(res, 200, true, 'Google login successful', {
     _id: req.user._id,
-    name: req.user.name,
+    firstName: req.user.firstName,
+    surname: req.user.surname,
     email: req.user.email,
     residentialAddress: req.user.residentialAddress,
     role: req.user.role,
@@ -124,7 +128,8 @@ export const getMe = (req, res) => {
   if (req.user) {
     sendResponse(res, 200, true, 'User profile fetched', {
       _id: req.user._id,
-      name: req.user.name,
+      firstName: req.user.firstName,
+      surname: req.user.surname,
       email: req.user.email,
       residentialAddress: req.user.residentialAddress,
       role: req.user.role,
