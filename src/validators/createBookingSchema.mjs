@@ -1,10 +1,25 @@
 import Joi from 'joi';
+import mongoose from 'mongoose';
+
+const objectId = Joi.string()
+  .custom((value, helpers) => {
+    if (!mongoose.isValidObjectId(value)) {
+      return helpers.error('any.invalid');
+    }
+    return value;
+  }, 'ObjectId validation')
+  .messages({
+    'any.invalid': 'Must be a valid MongoDB ObjectId',
+  });
 
 export const createBookingSchema = Joi.object({
-  houseId: Joi.string().hex().length(24).required().messages({
-    'any.required': 'House ID is required',
-    'string.hex': 'House ID must be a valid MongoDB ObjectId',
-    'string.length': 'House ID must be 24 characters',
+  unitId: objectId.required().messages({
+    'any.required': 'Unit ID is required',
+  }),
+
+  unitType: Joi.string().valid('House', 'Room', 'Bed').required().messages({
+    'any.required': 'Unit type is required',
+    'any.only': 'Unit type must be one of House, Room, or Bed',
   }),
 
   startDate: Joi.date().iso().greater('now').required().messages({
@@ -24,4 +39,6 @@ export const createBookingSchema = Joi.object({
   specialNotes: Joi.string().trim().max(500).optional().messages({
     'string.max': 'Special notes cannot exceed 500 characters',
   }),
-}).options({ abortEarly: false });
+})
+  .options({ abortEarly: false, stripUnknown: false, presence: 'required' })
+  .unknown(false);

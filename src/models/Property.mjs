@@ -1,57 +1,29 @@
 import mongoose from 'mongoose';
+import { PropertyStatus } from './enums/PropertyStatus.mjs';
 
-const propertySchema = new mongoose.Schema({
-    firstName: {
-        type: String,
-        trim: true
-    },
-    secondName: {
-        type: String,
-        trim: true
-    },
-    title: {
-        type: String,
-        required: true,
-        trim: true,
-        maxlength: 200
-    },
-    location: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    price: {
-        type: Number,
-        required: true
-    },
-    description: {
-        type: String,
-        required: true,
-        trim: true,
-        maxlength: 2000
-    },
+const propertySchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    location: { type: String, required: true },
+    price: { type: Number, required: true },
+    description: { type: String, required: true },
     status: {
-        type: String,
-        enum: ['NotVerified', 'Verified', 'Booked'],
-        default: 'NotVerified'
+      type: String,
+      enum: Object.values(PropertyStatus),
+      default: PropertyStatus.PENDING,
     },
     agentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
     },
     landlordId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }
-}, {
-    timestamps: true,
-    discriminatorKey: 'kind'
-});
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Landlord',
+      required: true,
+    },
+  },
+  { timestamps: true },
+);
 
-// Indexes
-propertySchema.index({ landlordId: 1 });
-propertySchema.index({ agentId: 1 });
-propertySchema.index({ status: 1 });
-
-const Property = mongoose.model('Property', propertySchema);
-export default Property;
+export const Property = mongoose.model('Property', propertySchema);

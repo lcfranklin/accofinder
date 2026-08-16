@@ -1,5 +1,5 @@
 export const PaymentStatus = Object.freeze({
-    INITIATED: 'INITIATED',
-    SUCCESS:'SUCCESS',
-    FAILED: 'FAILED',
-})
+  INITIATED: 'Initiated',
+  SUCCESS: 'Success',
+  FAILED: 'Failed',
+});

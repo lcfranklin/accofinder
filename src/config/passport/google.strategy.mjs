@@ -29,7 +29,7 @@ const googleStrategy = new GoogleStrategy(
             },
             email: profile.emails[0].value,
             googleId: profile.id,
-            role: 'client', 
+            role: 'CLIENT', 
           });
         }
       }
