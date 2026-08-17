@@ -34,9 +34,6 @@ export const registerUser = asyncHandler(async (req, res, next) => {
     // Automatically log in the user after registration
     req.login(user, (err) => {
       if (err) return next(err);
-      console.log('--- Login Successful: through registration ---');
-      console.log('User ID:', user._id);
-      console.log('Session ID:', req.sessionID);
       const accessToken = generateAccessToken(user);
       const refreshToken = generateRefreshToken(user);
 
@@ -70,6 +67,10 @@ export const loginUser = (req, res, next) => {
     if (err) return next(err);
     if (!user) {
       return sendResponse(res, 401, false, info.message || 'Login failed');
+    }
+
+    if(!user.isVerified) {
+      return sendResponse(res, 401, false, 'Email not verified');
     }
 
     req.login(user, (err) => {
@@ -181,6 +182,10 @@ export const checkEmail = async (req, res, next) => {
     const normalizedEmail = email.toLowerCase().trim();
 
     const existingUser = await User.exists({ email: normalizedEmail });
+  
+    if(!user.isVerified) {
+      return sendResponse(res, 401, false, 'Email not verified');
+    }
 
     return res.status(200).json({
       success: true,
