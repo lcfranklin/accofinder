@@ -69,7 +69,7 @@ export const loginUser = (req, res, next) => {
       return sendResponse(res, 401, false, info.message || 'Login failed');
     }
 
-    if(!user.isVerified) {
+    if(!user.isEmailVerified) {
       return sendResponse(res, 401, false, 'Email not verified');
     }
 
@@ -183,8 +183,8 @@ export const checkEmail = async (req, res, next) => {
 
     const existingUser = await User.exists({ email: normalizedEmail });
   
-    if(!user.isVerified) {
-      return sendResponse(res, 401, false, 'Email not verified');
+    if(!user.isEmailVerified) {
+      return sendResponse(res, 400, false, 'Email not verified');
     }
 
     return res.status(200).json({
