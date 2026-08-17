@@ -184,7 +184,7 @@ export const checkEmail = async (req, res, next) => {
     const existingUser = await User.exists({ email: normalizedEmail });
   
     if(!user.isEmailVerified) {
-      return sendResponse(res, 400, false, 'Email not verified');
+      return sendResponse(res, 401, false, 'Email not verified');
     }
 
     return res.status(200).json({
@@ -290,6 +290,8 @@ export const verifyOtp = asyncHandler(async (req, res) => {
 
   otp.status = "USED";
   await otp.save();
+  user.isEmailVerified = true;
+  await user.save();
 
   sendResponse(res, 200, true, "OTP verified successfully");
 });
