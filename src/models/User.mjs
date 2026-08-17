@@ -24,6 +24,14 @@ const userSchema = new mongoose.Schema({
     unique: true,
     trim: true,
   },
+  phone: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    minlength: 10,
+    maxlength: 12,
+  },
   residentialAddress: {
     type: String,
     required: true,

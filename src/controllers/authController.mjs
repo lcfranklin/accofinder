@@ -9,7 +9,7 @@ import sendEmail from '../utils/sendEmail.mjs';
  * Register a new user
  */
 export const registerUser = asyncHandler(async (req, res, next) => {
-  const { firstName, surname, email, password, confirmPassword, residentialAddress } =
+  const { firstName, surname, email, phone, password, confirmPassword, residentialAddress } =
     req.validatedData;
 
   if (password !== confirmPassword) {
@@ -25,6 +25,7 @@ export const registerUser = asyncHandler(async (req, res, next) => {
     firstName,
     surname,
     email,
+    phone,
     password,
     residentialAddress,
     role: 'CLIENT',
@@ -47,6 +48,7 @@ export const registerUser = asyncHandler(async (req, res, next) => {
           firstName: user.firstName,
           surname: user.surname,
           email: user.email,
+          phone: user.phone,
           residentialAddress: user.residentialAddress,
           role: user.role,
           accessToken,
@@ -75,9 +77,6 @@ export const loginUser = (req, res, next) => {
 
     req.login(user, (err) => {
       if (err) return next(err);
-      console.log('--- Login Successful ---');
-      console.log('User ID:', user._id);
-      console.log('Session ID:', req.sessionID);
       const accessToken = generateAccessToken(user);
       const refreshToken = generateRefreshToken(user);
 
@@ -86,6 +85,7 @@ export const loginUser = (req, res, next) => {
         firstName: user.firstName,
         surname: user.surname,
         email: user.email,
+        phone: user.phone,
         residentialAddress: user.residentialAddress,
         role: user.role,
         accessToken,
@@ -105,6 +105,7 @@ export const googleCallback = (req, res) => {
     firstName: req.user.firstName,
     surname: req.user.surname,
     email: req.user.email,
+    phone: req.user.phone,
     residentialAddress: req.user.residentialAddress,
     role: req.user.role,
   });
@@ -132,6 +133,7 @@ export const getMe = (req, res) => {
       firstName: req.user.firstName,
       surname: req.user.surname,
       email: req.user.email,
+      phone: req.user.phone,
       residentialAddress: req.user.residentialAddress,
       role: req.user.role,
     });

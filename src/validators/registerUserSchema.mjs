@@ -8,10 +8,10 @@ export const registerUserSchema = Joi.object({
     'string.max': 'First name cannot exceed 100 characters',
   }),
   surname: Joi.string().trim().min(2).max(100).required().messages({
-      'any.required': 'Surname is required',
-      'string.empty': 'Surname is required',
-      'string.min': 'Surname must be at least 2 characters long',
-      'string.max': 'Surname cannot exceed 100 characters',
+      'any.required': 'surname is required',
+      'string.empty': 'surname is required',
+      'string.min': 'surname must be at least 2 characters long',
+      'string.max': 'surname cannot exceed 100 characters',
     }),
 
   email: Joi.string()
@@ -23,6 +23,16 @@ export const registerUserSchema = Joi.object({
       'any.required': 'Valid email is required',
       'string.email': 'Please provide a valid email address',
       'string.empty': 'Email is required',
+    }),
+
+    phone: Joi.string()
+    .trim()
+    .min(10)
+    .max(12)
+    .required()
+    .messages({
+      'any.required': 'Phone number is required',
+      'string.empty': 'Phone number is required',
     }),
 
   password: Joi.string().min(6).required().messages({
