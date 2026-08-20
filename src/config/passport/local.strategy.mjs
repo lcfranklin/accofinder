@@ -1,9 +1,5 @@
 import { Strategy as LocalStrategy } from 'passport-local';
 import User from '../../models/User.mjs';
-import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const localStrategy = new LocalStrategy(
   {
