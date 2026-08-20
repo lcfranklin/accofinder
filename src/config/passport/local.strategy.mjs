@@ -1,5 +1,9 @@
 import { Strategy as LocalStrategy } from 'passport-local';
 import User from '../../models/User.mjs';
+import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const localStrategy = new LocalStrategy(
   {
@@ -10,12 +14,12 @@ const localStrategy = new LocalStrategy(
     try {
       const user = await User.findOne({ email });
       if (!user) {
-        return done(null, false, { message: 'Invalid email or password.' });
+        return done(null, false, { message: 'Invalid email or password' });
       }
-
+    
       const isMatch = await user.matchPassword(password);
       if (!isMatch) {
-        return done(null, false, { message: 'Invalid email or password.' });
+        return done(null, false, { message: 'Invalid email or password' });
       }
 
       return done(null, user);

@@ -70,9 +70,10 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-userSchema.pre('save', async function () {
+userSchema.pre('save', async function (next) {
   // Only hash password if it exists and is modified
   if (!this.password || !this.isModified('password')) {
+    return next();
   }
 
   try {
