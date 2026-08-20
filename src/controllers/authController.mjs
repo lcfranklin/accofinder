@@ -267,7 +267,7 @@ export const verifyOtp = asyncHandler(async (req, res) => {
   if (!email || !code || !purpose) {
     return sendResponse(res, 400, false, "Email, code, and purpose are required");
   }
-
+  console.log("The req body is ",req.body)
   const user = await User.findOne({ email });
   if (!user) {
     return sendResponse(res, 404, false, "User not found");
@@ -279,9 +279,9 @@ export const verifyOtp = asyncHandler(async (req, res) => {
     purpose,
     status: "PENDING",
   });
-
+  console.log("The otp is " + otp);
   if (!otp) {
-    return sendResponse(res, 400, false, "Invalid OTP");
+    return sendResponse(res, 400, false, "Invalid or expired OTP");
   }
 
   if (otp.expiresAt < new Date()) {
