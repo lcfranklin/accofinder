@@ -1,10 +1,12 @@
 import express from 'express';
+
 import * as bookingController from '../controllers/bookingController.mjs';
+
 import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
+
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
+
 import { createBookingSchema } from '../validators/createBookingSchema.mjs';
-import { updateBookingStatusSchema } from '../validators/updateBookingStatusSchema.mjs';
-import { queryBookingSchema } from '../validators/queryBookingSchema.mjs';
 
 const bookingRoutes = express.Router();
 
@@ -17,12 +19,16 @@ bookingRoutes.post(
   bookingController.createBooking,
 );
 
-// Get current authenticated user's bookings (Client history)
+// Get all bookings
 bookingRoutes.get(
-  '/my-bookings',
+  '/',
   isAuthenticated,
-  bookingController.getMyBookings,
+  checkRole(['LANDLORD', 'AGENT', 'ADMIN']),
+  bookingController.getBookings,
 );
+
+// Get single booking by ID
+bookingRoutes.get('/:id', isAuthenticated, bookingController.getBookingById);
 
 // Cancel a booking reservation
 bookingRoutes.patch(
@@ -32,25 +38,20 @@ bookingRoutes.patch(
   bookingController.cancelBooking,
 );
 
-// Get all bookings across system with query filters
-bookingRoutes.get(
-  '/',
+// Confirm a booking
+bookingRoutes.patch(
+  '/:id/confirm',
   isAuthenticated,
   checkRole(['LANDLORD', 'AGENT', 'ADMIN']),
-  validateRequest(queryBookingSchema, 'query'),
-  bookingController.getAllBookings,
+  bookingController.confirmBooking,
 );
 
-// Get single booking by ID
-bookingRoutes.get('/:id', isAuthenticated, bookingController.getBookingById);
-
-// Update booking status (e.g. PENDING -> CONFIRMED / PAID)
+// Update booking details
 bookingRoutes.patch(
-  '/:id/status',
+  '/:id',
   isAuthenticated,
-  checkRole(['LANDLORD', 'AGENT', 'ADMIN']),
-  validateRequest(updateBookingStatusSchema),
-  bookingController.updateBookingStatus,
+  checkRole(['CLIENT', 'ADMIN']),
+  bookingController.updateBooking,
 );
 
 // Delete a booking record

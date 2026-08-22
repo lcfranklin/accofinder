@@ -12,7 +12,7 @@ const roomRoutes = express.Router();
 roomRoutes.get(
   '/',
   validateRequest(queryRoomSchema, 'query'),
-  roomController.getRooms,
+  roomController.getAllRooms,
 );
 
 // Get all rooms for a specific property

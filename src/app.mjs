@@ -135,11 +135,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 
 app.use('/api/properties', propertyRoutes);
-app.use('/api/houses', houseRoutes);
-app.use('/api/hostels', hostelRoutes);
 app.use('/api/bookings', houseBookingRoutes);
 app.use('/api/rooms', roomRoutes);
-app.use('/api/beds', bedRoutes);
 
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);

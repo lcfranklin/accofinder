@@ -19,7 +19,7 @@ propertyRoutes.get(
 propertyRoutes.get('/:id', propertyController.getPropertyById);
 
 // Search properties near a location
-propertyRoutes.get('/search/nearby', propertyController.searchProperties);
+//propertyRoutes.get('/search/nearby', propertyController.searchProperties);
 
 // Create a new property listing
 propertyRoutes.post(
