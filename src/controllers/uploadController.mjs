@@ -1,4 +1,4 @@
-import { Media } from '../models/Media.mjs';
+import { Media } from '../models/media.mjs';
 import { Property } from '../models/Property.mjs';
 import { generateUploadUrl } from '../utils/s3Presigner.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';

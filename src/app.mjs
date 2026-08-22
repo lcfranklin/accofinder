@@ -14,13 +14,13 @@ import notificationRoutes from './routes/notificationRoutes.mjs';
 import disputeRoutes from './routes/disputeRoutes.mjs';
 import paymentRoutes from './routes/paymentRoutes.mjs';
 import authRoutes from './routes/authRoutes.mjs';
-import houseRoutes from './routes/houseRoutes.mjs';
-import uploadRoutes from './routes/uploadRoutes.mjs'
+
+import uploadRoutes from './routes/uploadRoutes.mjs';
 import { notFound, errorHandler } from './middleware/errorMiddleware.mjs';
-import bedRoutes from './routes/bedRoutes.mjs';
+
 import roomRoutes from './routes/roomRoutes.mjs';
 import propertyRoutes from './routes/propertyRoutes.mjs';
-import hostelRoutes from './routes/hostelRoutes.mjs';
+
 import houseBookingRoutes from './routes/bookingRoutes.mjs';
 
 dotenv.config();
@@ -28,15 +28,21 @@ dotenv.config();
 const app = express();
 
 app.use(helmet());
-app.use(cors({ 
-    origin: true,  
-    credentials: true, 
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept'],
-    exposedHeaders: ['Set-Cookie']
-}));
+    exposedHeaders: ['Set-Cookie'],
+  }),
+);
 // 3. Webhook route (needs raw body) for pay changu
-app.use("/api/payments/webhook", express.raw({ type: "application/json" }), paymentRoutes);
+app.use(
+  '/api/payments/webhook',
+  express.raw({ type: 'application/json' }),
+  paymentRoutes,
+);
 
 app.use(morgan('dev'));
 app.use(express.json());
@@ -48,7 +54,7 @@ app.use(passport.session());
 
 // Routes
 app.get('/', (req, res) => {
-    res.send(`
+  res.send(`
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -132,14 +138,14 @@ app.use('/api/properties', propertyRoutes);
 app.use('/api/houses', houseRoutes);
 app.use('/api/hostels', hostelRoutes);
 app.use('/api/bookings', houseBookingRoutes);
-app.use('/api/rooms', roomRoutes)
-app.use('/api/beds', bedRoutes)
+app.use('/api/rooms', roomRoutes);
+app.use('/api/beds', bedRoutes);
 
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/auth', authRoutes);
-app.use("/api/upload", uploadRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Error handling
 app.use(notFound);
