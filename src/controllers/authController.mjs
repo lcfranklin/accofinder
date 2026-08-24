@@ -185,7 +185,7 @@ export const checkEmail = async (req, res, next) => {
 
     const existingUser = await User.exists({ email: normalizedEmail });
   
-    if(!user.isEmailVerified) {
+    if(!existingUser.isEmailVerified) {
       return sendResponse(res, 401, false, 'Email not verified');
     }
 
