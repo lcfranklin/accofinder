@@ -8,34 +8,38 @@ import {
 
 import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
-import { processMobilePaymentSchema } from '../validators/paymentSchema.mjs';
+import {
+  processMobilePaymentSchema,
+  verifyPaymentSchema,
+} from '../validators/paymentSchema.mjs';
 
-const router = express.Router();
+const paymentRoutes = express.Router();
 
-router.get(
-  '/operators',
-  isAuthenticated,
-  getSupportedMomoOperators
-);
+// Get list of supported mobile money operators
+paymentRoutes.get('/operators', isAuthenticated, getSupportedMomoOperators);
 
-router.post(
+// Initiate mobile money payment for a booking
+paymentRoutes.post(
   '/process/:bookingId',
   isAuthenticated,
   checkRole(['CLIENT']),
   validateRequest(processMobilePaymentSchema),
-  processMobilePayment
+  processMobilePayment,
 );
 
-router.get(
+// Verify payment status by charge ID
+paymentRoutes.get(
   '/verify/:chargeId',
   isAuthenticated,
-  verifyMobilePayment
+  validateRequest(verifyPaymentSchema, 'params'),
+  verifyMobilePayment,
 );
 
-router.get(
+// Get single charge details from PayChangu
+paymentRoutes.get(
   '/details/:chargeId',
   isAuthenticated,
-  getSingleChargeDetails
+  getSingleChargeDetails,
 );
 
-export default router;
+export default paymentRoutes;

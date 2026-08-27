@@ -1,44 +1,31 @@
 import Joi from 'joi';
-import mongoose from 'mongoose';
-
-const objectId = Joi.string()
-  .custom((value, helpers) => {
-    if (!mongoose.isValidObjectId(value)) {
-      return helpers.error('any.invalid');
-    }
-    return value;
-  }, 'ObjectId validation')
-  .messages({
-    'any.invalid': 'Must be a valid MongoDB ObjectId',
-  });
 
 export const createBookingSchema = Joi.object({
-  unitId: objectId.required().messages({
-    'any.required': 'Unit ID is required',
+  roomId: Joi.string().hex().length(24).required().messages({
+    'string.empty': 'roomId is required',
+    'string.length': 'roomId must be a valid 24-character hex ID',
   }),
-
-  unitType: Joi.string().valid('House', 'Room', 'Bed').required().messages({
-    'any.required': 'Unit type is required',
-    'any.only': 'Unit type must be one of House, Room, or Bed',
+  clientId: Joi.string().hex().length(24).optional().messages({
+    'string.length': 'clientId must be a valid 24-character hex ID',
   }),
-
-  startDate: Joi.date().iso().greater('now').required().messages({
-    'any.required': 'Start date is required',
-    'date.base': 'Start date must be a valid date',
-    'date.greater': 'Start date must be in the future',
-    'date.format': 'Start date must be in ISO format (YYYY-MM-DD)',
+  checkInDate: Joi.date().iso().greater('now').required().messages({
+    'date.base': 'Check-in date must be a valid date',
+    'date.greater': 'Check-in date must be in the future',
+    'any.required': 'Check-in date is required',
   }),
-
-  endDate: Joi.date().iso().greater(Joi.ref('startDate')).required().messages({
-    'any.required': 'End date is required',
-    'date.base': 'End date must be a valid date',
-    'date.greater': 'End date must be after start date',
-    'date.format': 'End date must be in ISO format (YYYY-MM-DD)',
+  checkOutDate: Joi.date()
+    .iso()
+    .greater(Joi.ref('checkInDate'))
+    .required()
+    .messages({
+      'date.base': 'Check-out date must be a valid date',
+      'date.greater': 'Check-out date must be after the check-in date',
+      'any.required': 'Check-out date is required',
+    }),
+  amount: Joi.number().positive().required().messages({
+    'number.base': 'Amount must be a number',
+    'number.positive': 'Amount must be greater than 0',
+    'any.required': 'Amount is required',
   }),
-
-  specialNotes: Joi.string().trim().max(500).optional().messages({
-    'string.max': 'Special notes cannot exceed 500 characters',
-  }),
-})
-  .options({ abortEarly: false, stripUnknown: false, presence: 'required' })
-  .unknown(false);
+  commissionAmount: Joi.number().min(0).default(0),
+});
