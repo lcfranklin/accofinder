@@ -1,23 +1,29 @@
-import { Resend } from "resend";
+import { BirdClient } from "@messagebird/sdk";
 import dotenv from "dotenv";
 dotenv.config();
 
-const resend = new Resend('re_125376');
+const bird_api_key = process.env.BIRD_API_KEY;
 
-const sendEmail = async (to, subject, html) => {
+const sendEmail = async (user_email, code, purpose) => {
+  const bird = new BirdClient({ apiKey: bird_api_key });
+
   try {
-    await resend.emails.send({
-      from: `"AccoFinder" <onboarding@resend.dev>`,
-      to,
-      subject,
-      html,
+    const msg = await bird.email.send({
+      from: { email: "onboarding@messagebird.dev", name: "Bird" },
+      to: [user_email],
+      subject: `Your OTP for ${purpose}`,
+      html: `<p>Your OTP code is: <strong>${code}</strong>. It will expire in 10 minutes.</p>`
     });
-
-    return { status: 200, message: "Email sent successfully" };
+    return true;
   } catch (error) {
-    console.error("Send email error:", error);
-    return { status: 500, message: "Failed to send email" };
+    console.error("Send email error:", {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      details: error.response?.data || error,
+    });
+    return false;
   }
-};
+}
 
 export default sendEmail;

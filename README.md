@@ -81,7 +81,7 @@ src/
 
 ## API Endpoints (Quick Overview)
 
-- **Auth:** `/api/auth/register`, `/api/auth/login`, `/api/auth/google/callback`, `/api/auth/logout`
+- **Auth:** `/api/auth/register`, `/api/auth/login`, `/api/auth/google/callback`, `/api/auth/logout`, `/api/auth/otp/request`, `/api/auth/otp/verify`
 - **Users:** `/api/users`, `/api/users/:id`, `/api/users/me/profile`, `/api/users/:id/promote`, `/api/users/:id/delete`
 - **Houses:** `/api/house-listing`, `/api/house-listing/:id`,`/api/house-listing/:id/delete`
 - **Disputes:** `/api/disputes`, `/api/disputes/:id`, `/api/disputes/:id/delete`

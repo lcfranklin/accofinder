@@ -75,20 +75,15 @@ export const createAdmin = async () => {
       return;
     }
 
-    const admin = await User.create({
-      name: {
-        firstName: 'admin',
-        surname: 'admin',
-      },
-      residentialAddress: {
-        district: 'Lilongwe',
-        traditionalAthority: 'Wolf Assassin',
-        village: 'Kang',
-      },
-      email: adminEmail,
-      password: adminPassword,
-      role: 'ADMIN',
-    });
+        const admin = await User.create({
+        firstName: "admin",
+        surname:"admin",
+        residentialAddress:"Lilongwe",
+        email: adminEmail,
+        phone: "0880000000",
+        password: adminPassword,
+        role: "ADMIN",
+        })
 
     console.log('admin account created:', admin.email);
   } catch (error) {

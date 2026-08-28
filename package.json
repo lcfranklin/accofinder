@@ -12,6 +12,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",
     "@aws-sdk/s3-request-presigner": "^3.1033.0",
+    "@messagebird/sdk": "^0.22.0",
     "@swc/core": "^1.15.30",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
