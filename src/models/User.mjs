@@ -71,7 +71,6 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 };
 
 userSchema.pre('save', async function () {
-  // Only hash password if it exists and is modified
   if (!this.password || !this.isModified('password')) {
     return;
   }
@@ -84,14 +83,11 @@ userSchema.pre('save', async function () {
   }
 });
 
-// Indexes
-// userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
 
-// Virtual for full name
 userSchema.virtual('fullName').get(function () {
-  return `${this.firstName} ${this.lastName}`;
+  return `${this.firstName} ${this.surname}`;
 });
 
 userSchema.methods.isAgent = function () {
@@ -102,5 +98,4 @@ userSchema.methods.isClient = function () {
   return this.role === UserRole.CLIENT;
 };
 
-const User = mongoose.model('User', userSchema);
-export default User;
+export const User = mongoose.model('User', userSchema);

@@ -1,5 +1,5 @@
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
-import User from '../models/User.mjs';
+import { User } from '../models/User.mjs';
 import passport from 'passport';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.mjs';
 import crypto from 'crypto';
@@ -204,7 +204,7 @@ export const requestOtp = asyncHandler(async (req, res) => {
   const isValidEmail = EMAIL_REGEX.test(email);
 
   if (!email || !purpose) {
-    return sendResponse(res, 400, false, "Email and purpose are required");
+    return sendResponse(res, 400, false, 'Email and purpose are required');
   }
 
   if (!isValidEmail) {
@@ -217,13 +217,13 @@ export const requestOtp = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ email });
   if (!user) {
-    return sendResponse(res, 404, false, "User not found");
+    return sendResponse(res, 404, false, 'User not found');
   }
 
   // Invalidate any existing PENDING OTPs for this user and purpose
   await Otp.updateMany(
-    { user: user._id, purpose: purpose, status: "PENDING" },
-    { $set: { status: "EXPIRED" } }
+    { user: user._id, purpose: purpose, status: 'PENDING' },
+    { $set: { status: 'EXPIRED' } },
   );
 
   const code = crypto.randomInt(100000, 999999).toString();
@@ -234,7 +234,7 @@ export const requestOtp = asyncHandler(async (req, res) => {
     user: user._id,
     code,
     purpose,
-    status: "PENDING",
+    status: 'PENDING',
     expiresAt,
   });
 
@@ -252,7 +252,7 @@ export const requestOtp = asyncHandler(async (req, res) => {
     return sendResponse(res, 500, false, "Failed to send OTP email");
   }
 
-  sendResponse(res, 200, true, "OTP sent successfully",otp.code);
+  sendResponse(res, 200, true, 'OTP sent successfully', otp.code);
 });
 
 /**
@@ -261,19 +261,24 @@ export const requestOtp = asyncHandler(async (req, res) => {
 export const verifyOtp = asyncHandler(async (req, res) => {
   const { email, code, purpose } = req.body;
   if (!email || !code || !purpose) {
-    return sendResponse(res, 400, false, "Email, code, and purpose are required");
+    return sendResponse(
+      res,
+      400,
+      false,
+      'Email, code, and purpose are required',
+    );
   }
   console.log("The req body is ",req.body)
   const user = await User.findOne({ email });
   if (!user) {
-    return sendResponse(res, 404, false, "User not found");
+    return sendResponse(res, 404, false, 'User not found');
   }
 
   const otp = await Otp.findOne({
     user: user._id,
     code,
     purpose,
-    status: "PENDING",
+    status: 'PENDING',
   });
   console.log("The otp is " + otp);
   if (!otp) {
@@ -281,15 +286,15 @@ export const verifyOtp = asyncHandler(async (req, res) => {
   }
 
   if (otp.expiresAt < new Date()) {
-    otp.status = "EXPIRED";
+    otp.status = 'EXPIRED';
     await otp.save();
-    return sendResponse(res, 400, false, "OTP has expired");
+    return sendResponse(res, 400, false, 'OTP has expired');
   }
 
-  otp.status = "USED";
+  otp.status = 'USED';
   await otp.save();
   user.isEmailVerified = true;
   await user.save();
 
-  sendResponse(res, 200, true, "OTP verified successfully");
+  sendResponse(res, 200, true, 'OTP verified successfully');
 });

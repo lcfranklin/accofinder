@@ -1,7 +1,5 @@
-export const VerificationStatus = {
-    PENDING: 'PENDING',
-    VERIFIED: 'VERIFIED',
-    REJECTED: 'REJECTED'
-};
-
-Object.freeze(VerificationStatus);
+export const VerificationStatus = Object.freeze({
+  PENDING: 'Pending',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+});

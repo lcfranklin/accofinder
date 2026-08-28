@@ -1,76 +1,65 @@
 import express from 'express';
+
 import * as bookingController from '../controllers/bookingController.mjs';
-import { isAuthenticated, checkRole } from "../middleware/authMiddleware.mjs"
+
+import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
+
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
+
 import { createBookingSchema } from '../validators/createBookingSchema.mjs';
-import { updateBookingSchema } from '../validators/updateBookingSchema.mjs';
 
-const houseBookingRoutes = express.Router();
+const bookingRoutes = express.Router();
 
-houseBookingRoutes.get(
-  '/',
-  // isAuthenticated,
-  // checkRole(['ADMIN']),
-  bookingController.getBookings,
-);
-
-houseBookingRoutes.get(
-  '/:id',
-  isAuthenticated,
-  bookingController.getBookingById,
-);
-
-houseBookingRoutes.post(
+// Create a new booking reservation
+bookingRoutes.post(
   '/',
   isAuthenticated,
+  checkRole(['CLIENT', 'ADMIN']),
   validateRequest(createBookingSchema),
   bookingController.createBooking,
 );
 
-houseBookingRoutes.patch(
-  '/:id',
+// Get all bookings
+bookingRoutes.get(
+  '/',
   isAuthenticated,
-  validateRequest(updateBookingSchema),
-  bookingController.updateBooking,
+  checkRole(['LANDLORD', 'AGENT', 'ADMIN']),
+  bookingController.getBookings,
 );
 
-houseBookingRoutes.delete(
-  '/:id',
-  isAuthenticated,
-  bookingController.deleteBooking,
-);
+// Get single booking by ID
+bookingRoutes.get('/:id', isAuthenticated, bookingController.getBookingById);
 
-houseBookingRoutes.patch(
+// Cancel a booking reservation
+bookingRoutes.patch(
   '/:id/cancel',
   isAuthenticated,
+  checkRole(['CLIENT', 'LANDLORD', 'ADMIN']),
   bookingController.cancelBooking,
 );
 
-houseBookingRoutes.patch(
+// Confirm a booking
+bookingRoutes.patch(
   '/:id/confirm',
   isAuthenticated,
+  checkRole(['LANDLORD', 'AGENT', 'ADMIN']),
   bookingController.confirmBooking,
 );
 
-export default houseBookingRoutes;
+// Update booking details
+bookingRoutes.patch(
+  '/:id',
+  isAuthenticated,
+  checkRole(['CLIENT', 'ADMIN']),
+  bookingController.updateBooking,
+);
 
+// Delete a booking record
+bookingRoutes.delete(
+  '/:id',
+  isAuthenticated,
+  checkRole(['ADMIN']),
+  bookingController.deleteBooking,
+);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+export default bookingRoutes;

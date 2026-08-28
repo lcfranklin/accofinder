@@ -1,114 +1,52 @@
 import mongoose from 'mongoose';
-import { VerificationStatus } from './enums/VerificationStatus.mjs';
+import { PropertyType } from './enums/PropertyType.mjs';
 
-const propertySchema = new mongoose.Schema({
-    title: {
-        type: String,
-        required: true,
-        trim: true,
-        maxlength: 200
+const physicalAddressSchema = new mongoose.Schema(
+  {
+    district: { type: String, trim: true },
+    village: { type: String, trim: true },
+  },
+  { _id: false },
+);
+
+const propertySchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
+
+    price: { type: Number, default: 0 },
+
+    propertyType: {
+      type: String,
+      enum: Object.values(PropertyType),
+      default: PropertyType.WHOLE,
+      uppercase: true,
     },
-    description: {
-        type: String,
-        required: true,
-        trim: true,
-        maxlength: 2000
-    },
-        owner: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
-    physicalAddress: {
-        district: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        village: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        location: {
-            type: {
-            type: String,
-            enum: ['Point'],
-            default: 'Point'
-            },
-            coordinates: {
-            type: [Number],
-            required: true,
-            index: '2dsphere'
-            }
-        },
-    },
+
+    physicalAddress: { type: physicalAddressSchema, default: () => ({}) },
+
     verificationStatus: {
-        type: String,
-        enum: Object.values(VerificationStatus),
-        default: VerificationStatus.PENDING
+      type: String,
+      enum: ['PENDING', 'VERIFIED', 'DRAFT'],
+      default: 'PENDING',
     },
-    amenities: [{
-        type: String,
-        enum: ['WIFI', 'PARKING', 'SECURITY', 'WATER', 'ELECTRICITY', 'FURNISHED', 'AC']
-    }],
-    media: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Media'
-    }],
-    isActive: {
-        type: Boolean,
-        default: true
+
+    amenities: { type: [String], default: [] },
+
+    landlord: { type: String, trim: true },
+    landlordPhone: { type: String, trim: true },
+
+    isActive: { type: Boolean, default: true },
+
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
     },
-    averageRating: {
-        type: Number,
-        min: 0,
-        max: 5,
-        default: 0
-    },
-    totalReviews: {
-        type: Number,
-        default: 0
-    }
-    }, {
-    timestamps: true
-});
 
-// Indexes
-propertySchema.index({ owner: 1 });
-propertySchema.index({ district: 1, village: 1 });
-propertySchema.index({ verificationStatus: 1 });
-propertySchema.index({ location: '2dsphere' });
+    media: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Media' }],
+  },
+  { timestamps: true },
+);
 
-// Virtuals
-propertySchema.virtual('houses', {
-    ref: 'House',
-    localField: '_id',
-    foreignField: 'property'
-    });
-
-    propertySchema.virtual('hostels', {
-    ref: 'Hostel',
-    localField: '_id',
-    foreignField: 'property'
-    });
-
-    propertySchema.virtual('standaloneRooms', {
-    ref: 'Room',
-    localField: '_id',
-    foreignField: 'property'
-});
-
-// Methods
-propertySchema.methods.isVerified = function() {
-    return this.verificationStatus === VerificationStatus.VERIFIED;
-};
-
-propertySchema.methods.updateRating = function(newRating) {
-    this.totalReviews += 1;
-    this.averageRating = ((this.averageRating * (this.totalReviews - 1)) + newRating) / this.totalReviews;
-    return this.save();
-};
-
-const Property = mongoose.model('Property', propertySchema);
-export default Property;
+export const Property = mongoose.model('Property', propertySchema);

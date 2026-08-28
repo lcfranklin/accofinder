@@ -1,5 +1,5 @@
 import { Strategy as LocalStrategy } from 'passport-local';
-import User from '../../models/User.mjs';
+import { User } from '../../models/User.mjs';
 
 const localStrategy = new LocalStrategy(
   {
@@ -22,7 +22,7 @@ const localStrategy = new LocalStrategy(
     } catch (error) {
       return done(error);
     }
-  }
+  },
 );
 
 export default localStrategy;

@@ -1,6 +1,5 @@
-
 export const DisputeStatus = Object.freeze({
-    OPEN:'OPEN',
-    RESOLVED: 'RESOLVED',
-    REJECTED: 'REJECTED'
-})
+  OPEN: 'Open',
+  RESOLVED: 'Resolved',
+  REJECTED: 'Rejected',
+});

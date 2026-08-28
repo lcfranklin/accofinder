@@ -1,5 +1,5 @@
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import User from '../../models/User.mjs';
+import { User } from '../../models/User.mjs';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -29,7 +29,7 @@ const googleStrategy = new GoogleStrategy(
             },
             email: profile.emails[0].value,
             googleId: profile.id,
-            role: 'CLIENT', 
+            role: 'CLIENT',
           });
         }
       }
@@ -38,7 +38,7 @@ const googleStrategy = new GoogleStrategy(
     } catch (error) {
       return done(error);
     }
-  }
+  },
 );
 
 export default googleStrategy;

@@ -1,127 +1,215 @@
-import mongoose from "mongoose";
-import Room from "../models/Room.mjs";
-import { asyncHandler, sendResponse } from "../utils/helpers.mjs";
+import { Room } from '../models/Room.mjs';
+import { Property } from '../models/Property.mjs';
+import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import mongoose from 'mongoose';
 
+// get all rooms
+export const getAllRooms = asyncHandler(async (req, res, next) => {
+  try {
+    const rooms = await Room.find().populate(
+      'propertyId',
+      'title location price status',
+    );
 
-export const createRoom = asyncHandler(async (req, res, next)=>{
+    if (!rooms) {
+      return sendResponse(res, 400, false, 'Failed to retrieve rooms');
+    }
 
-        const {roomName,
-                description,
-                capacity,
-                property,
-                hostel,
-                monthlyRent,
-                bookingFee,
-                isAvailable,
-                floorNumber,
-                squareFootage,
-                hasWindow,
-                hasBalcony,
-                amenities
-        }= req.body;
-
-        const requiredFields = ['roomName', 'capacity', 'hostel', 'monthlyRent', 'bookingFee'];
-        const missingFields = requiredFields.filter(field => !req.body[field]);
-        
-        if (missingFields.length > 0) {
-                return sendResponse(res, 400, `Missing required fields: ${missingFields.join(', ')}`);
-        }
-
-        const room = Room.create({
-                roomName,
-                description,
-                capacity,
-                property,
-                hostel,
-                monthlyRent,
-                bookingFee,
-                isAvailable,
-                floorNumber,
-                squareFootage,
-                hasWindow,
-                hasBalcony,
-                amenities
-        });
-
-        if(!room)sendResponse(res, 400, false, "bad request room not created");
-        sendResponse(res, 201, true, "Room was created", room)
+    return sendResponse(res, 200, true, 'Rooms retrieved successfully', rooms);
+  } catch (error) {
+    next(error);
+  }
 });
 
-export const updateRoom = asyncHandler(async(req, res, next) =>{
-        const roomId = req.params.id;
+// get rooms by property ID
+export const getRoomsByProperty = asyncHandler(async (req, res, next) => {
+  try {
+    const propertyId = req.params.propertyId;
 
-        const {roomName,description,capacity,property,hostel,monthlyRent,bookingFee,isAvailable,
-                floorNumber,squareFootage,hasWindow,hasBalcony,amenities}= req.body;
-        
-        const updates = {roomName,description,capacity,property,hostel,monthlyRent,bookingFee,
-                isAvailable,floorNumber,squareFootage,hasWindow,hasBalcony,amenities};
-        
-        const allowedUpdates = ['roomName','description','capacity','property','hostel','monthlyRent',
-                'bookingFee','isAvailable','floorNumber','squareFootage','hasWindow','hasBalcony','amenities'];
+    if (!mongoose.Types.ObjectId.isValid(propertyId)) {
+      return sendResponse(res, 400, false, 'Invalid property ID format');
+    }
 
-        const updateKeys = Object.keys(updates);
-        const isValidUpdate = updateKeys.every(key => allowedUpdates.includes(key));
+    const rooms = await Room.find({ propertyId }).populate(
+      'propertyId',
+      'title location price',
+    );
 
-        if(!isValidUpdate || updateKeys.length == 0){
-                return sendResponse(res, 400, false, "Invalid room update")
-        }
-
-        const room = await Room.findByIdAndUpdate(
-                roomId,
-                {$set:{
-                        roomName: roomName,
-                        description: description,
-                        capacity: capacity,
-                        property: property,
-                        hostel: hostel,
-                        monthlyRent: monthlyRent,
-                        bookingFee: bookingFee,
-                        isAvailable: isAvailable,
-                        floorNumber: floorNumber,
-                        squareFootage: squareFootage,
-                        hasWindow: hasWindow,
-                        hasBalcony: hasBalcony,
-                        amenities: amenities
-                }
-                },
-                {
-                        new: true
-                }
-        );
-
-        if (!room || updateKeys.length == 0) {
-                return sendResponse(res, 400, false, " Bad request for room update")
-        }
-
-        return sendResponse(res, 200, true, `Room with id: ${roomId} was updated`, room);
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Rooms for property retrieved successfully',
+      rooms,
+    );
+  } catch (error) {
+    next(error);
+  }
 });
 
-export const getAllRooms = asyncHandler(async (req, res, next)=>{
-        const rooms = await Room.find().populate('property').populate('hostel');
-        sendResponse(res, 200, true, "All rooms retrieved", rooms);
+//  get room by ID
+export const getRoomById = asyncHandler(async (req, res, next) => {
+  try {
+    const roomId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return sendResponse(res, 400, false, 'Invalid room ID format');
+    }
+
+    const room = await Room.findById(roomId).populate(
+      'propertyId',
+      'title location price agentId landlordId',
+    );
+
+    if (!room) {
+      return sendResponse(res, 404, false, `Room with id ${roomId} not found`);
+    }
+
+    return sendResponse(res, 200, true, 'Room found', room);
+  } catch (error) {
+    next(error);
+  }
 });
 
-export const getRoomById = asyncHandler(async(req, res, next) =>{
-        const roomId = req.params.id;
+// create a new room under a property
+export const createRoom = asyncHandler(async (req, res, next) => {
+  try {
+    const { propertyId, type, price, available } = req.validatedData || req.body;
 
-        if(!mongoose.Types.ObjectId.isValid(roomId)){
-                return sendResponse(res, 400, false, "Invalid Id format")
-        }
+    if (!propertyId || !type) {
+      return sendResponse(
+        res,
+        400,
+        false,
+        'Missing required fields: propertyId, type',
+      );
+    }
 
-        const room = await Room.findById(roomId).populate('hostel');
-        if(!room){
-                return sendResponse(res, 404, false, `Room with id ${roomId} was not found`);
-        }
-        return sendResponse(res, 200, true, `Room with id ${roomId} was found`, room);
+    if (!mongoose.Types.ObjectId.isValid(propertyId)) {
+      return sendResponse(res, 400, false, 'Invalid property ID format');
+    }
+
+    // Verify parent Property exists
+    const property = await Property.findById(propertyId);
+    if (!property) {
+      return sendResponse(res, 404, false, 'Parent property not found');
+    }
+
+    const room = await Room.create({
+      propertyId: new mongoose.Types.ObjectId(propertyId),
+      type,
+      price: price ?? 0,
+      available: available !== undefined ? available : true,
+    });
+
+    if (!room) {
+      return sendResponse(res, 400, false, 'Bad request, room not created');
+    }
+
+    return sendResponse(res, 201, true, 'Room created successfully', room);
+  } catch (error) {
+    next(error);
+  }
 });
 
+//  update room details
+export const updateRoom = asyncHandler(async (req, res, next) => {
+  try {
+    const roomId = req.params.id;
 
-export const deleteRoom = asyncHandler(async (req, res, next)=> {
-        const roomId = req.params.id
-        const deletedRoom = await Room.findByIdAndDelete(roomId)
-        if(!deletedRoom){
-                return sendResponse(res, 500, false, "Failed to delete Room")
-        }
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return sendResponse(res, 400, false, 'Invalid room ID format');
+    }
 
-        return sendResponse(res, 200, true, `Room with id ${roomId} got deleted successfully`)
+    const { type, price, available } = req.validatedData || req.body;
+    const updates = { type, price, available };
+
+    Object.keys(updates).forEach(
+      (key) => updates[key] === undefined && delete updates[key],
+    );
+
+    if (Object.keys(updates).length === 0) {
+      return sendResponse(res, 400, false, 'Invalid or empty update fields');
+    }
+
+    const updatedRoom = await Room.findByIdAndUpdate(
+      roomId,
+      { $set: updates },
+      { returnDocument: 'after', runValidators: true },
+    );
+
+    if (!updatedRoom) {
+      return sendResponse(res, 404, false, `Room with id ${roomId} not found`);
+    }
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Room updated successfully',
+      updatedRoom,
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
+// toggle availability
+export const toggleRoomAvailability = asyncHandler(async (req, res, next) => {
+  try {
+    const roomId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return sendResponse(res, 400, false, 'Invalid room ID format');
+    }
+
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return sendResponse(res, 404, false, `Room with id ${roomId} not found`);
+    }
+
+    room.available = !room.available;
+    await room.save();
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      `Room availability updated to ${room.available}`,
+      room,
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
+//  delete  room
+export const deleteRoom = asyncHandler(async (req, res, next) => {
+  try {
+    const roomId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return sendResponse(res, 400, false, 'Invalid room ID format');
+    }
+
+    const deletedRoom = await Room.findByIdAndDelete(roomId);
+
+    if (!deletedRoom) {
+      return sendResponse(
+        res,
+        404,
+        false,
+        'Failed to delete room or room not found',
+      );
+    }
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      `Room with id ${roomId} deleted successfully`,
+    );
+  } catch (error) {
+    next(error);
+  }
 });

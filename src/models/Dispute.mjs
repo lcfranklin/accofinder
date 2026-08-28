@@ -1,46 +1,26 @@
 import mongoose from 'mongoose';
 import { DisputeStatus } from './enums/DisputeStatus.mjs';
 
-const disputeSchema = new mongoose.Schema({
-  raisedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
+const disputeSchema = new mongoose.Schema(
+  {
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Booking',
+      required: true,
+    },
+    raisedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    issue: { type: String, required: true },
+    status: {
+      type: String,
+      enum: Object.values(DisputeStatus),
+      default: DisputeStatus.OPEN,
+    },
   },
-  reportedUser: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  },
-  relatedHouse: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'House',
-  },
-  description: {
-    type: String,
-    required: true,
-  },
-  status: {
-    type: String,
-    enum: Object.values(DisputeStatus),
-    default: DisputeStatus.OPEN,
-  },
-  title: {
-    type: String,
-    required: true,
-  },
-  resolutionNotes: {
-    type: String,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
- 
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  }
-});
+  { timestamps: true },
+);
 
-const Dispute = mongoose.model('Dispute', disputeSchema);
-export default Dispute;
+export const Dispute = mongoose.model('Dispute', disputeSchema);
