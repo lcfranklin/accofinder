@@ -8,20 +8,14 @@ import { queryPropertySchema } from '../validators/queryPropertySchema.mjs';
 
 const propertyRoutes = express.Router();
 
-// List all properties with pagination, filtering & search
 propertyRoutes.get(
   '/',
   validateRequest(queryPropertySchema, 'query'),
   propertyController.getAllProperties,
 );
 
-// Get a single property by ID (including populated rooms)
 propertyRoutes.get('/:id', propertyController.getPropertyById);
 
-// Search properties near a location
-//propertyRoutes.get('/search/nearby', propertyController.searchProperties);
-
-// Create a new property listing
 propertyRoutes.post(
   '/',
   isAuthenticated,
@@ -30,7 +24,6 @@ propertyRoutes.post(
   propertyController.createProperty,
 );
 
-// Update property details
 propertyRoutes.put(
   '/:id',
   isAuthenticated,
@@ -39,7 +32,6 @@ propertyRoutes.put(
   propertyController.updateProperty,
 );
 
-// Delete a property listing
 propertyRoutes.delete(
   '/:id',
   isAuthenticated,

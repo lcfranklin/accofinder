@@ -2,7 +2,6 @@ import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import { Booking } from '../models/Booking.mjs';
 import { Payment } from '../models/Payment.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
-import { PaymentStatus } from '../models/enums/PaymentStatus.mjs';
 import { v4 as uuidv4 } from 'uuid';
 import paychangu from '../utils/paychangu.mjs';
 import { PaymentStatus } from '../models/enums/PaymentStatus.mjs';

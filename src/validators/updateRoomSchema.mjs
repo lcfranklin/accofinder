@@ -1,16 +1,11 @@
 import Joi from 'joi';
-import { RoomType } from '../models/enums/RoomType.mjs';
 
 export const updateRoomSchema = Joi.object({
-  roomType: Joi.string()
-    .valid(...Object.values(RoomType))
-    .optional(),
-  title: Joi.string().trim().min(2).max(100).optional(),
-  price: Joi.number().positive().optional(),
-  capacity: Joi.number().integer().min(1).optional(),
-  occupiedBeds: Joi.number().integer().min(0).optional(),
-  isAvailable: Joi.boolean().optional(),
-  images: Joi.array().items(Joi.string().uri()).optional(),
+  type: Joi.string().trim().optional(),
+  price: Joi.number().min(0).optional().messages({
+    'number.base': 'Price must be a number',
+  }),
+  available: Joi.boolean().optional(),
 })
   .min(1)
   .messages({

@@ -1,8 +1,33 @@
-import express from "express";
-import { getUploadUrl } from "../controllers/uploadController.mjs";
+import express from 'express';
+import multer from 'multer';
+import { isAuthenticated } from '../middleware/authMiddleware.mjs';
+import {
+  uploadMedia,
+  getUploadUrl,
+  getMediaByProperty,
+  deleteMedia,
+} from '../controllers/uploadController.mjs';
 
 const router = express.Router();
 
-router.get("/presigned-url", getUploadUrl);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpg|jpeg|png|webp|gif/;
+    if (allowed.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
+
+router.post('/upload', isAuthenticated, upload.single('file'), uploadMedia);
+
+router.get('/presigned-url', isAuthenticated, getUploadUrl);
+
+router.get('/property/:propertyId', getMediaByProperty);
+router.delete('/:id', isAuthenticated, deleteMedia);
 
 export default router;

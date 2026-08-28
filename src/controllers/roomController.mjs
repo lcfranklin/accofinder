@@ -74,7 +74,7 @@ export const getRoomById = asyncHandler(async (req, res, next) => {
 // create a new room under a property
 export const createRoom = asyncHandler(async (req, res, next) => {
   try {
-    const { propertyId, type, available } = req.validatedData || req.body;
+    const { propertyId, type, price, available } = req.validatedData || req.body;
 
     if (!propertyId || !type) {
       return sendResponse(
@@ -98,6 +98,7 @@ export const createRoom = asyncHandler(async (req, res, next) => {
     const room = await Room.create({
       propertyId: new mongoose.Types.ObjectId(propertyId),
       type,
+      price: price ?? 0,
       available: available !== undefined ? available : true,
     });
 
@@ -120,8 +121,8 @@ export const updateRoom = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Invalid room ID format');
     }
 
-    const { type, available } = req.validatedData || req.body;
-    const updates = { type, available };
+    const { type, price, available } = req.validatedData || req.body;
+    const updates = { type, price, available };
 
     Object.keys(updates).forEach(
       (key) => updates[key] === undefined && delete updates[key],

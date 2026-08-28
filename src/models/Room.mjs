@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import { RoomType } from './enums/RoomType.mjs';
 
 const roomSchema = new mongoose.Schema(
   {
@@ -10,13 +9,12 @@ const roomSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: {
-        values: Object.values(RoomType),
-        message: '{VALUE} is not a valid room type',
-      },
-      uppercase: true,
-      default: RoomType.SINGLE,
       required: [true, 'Room type is required'],
+      trim: true,
+    },
+    price: {
+      type: Number,
+      default: 0,
     },
     available: {
       type: Boolean,

@@ -37,7 +37,6 @@ app.use(
     exposedHeaders: ['Set-Cookie'],
   }),
 );
-// 3. Webhook route (needs raw body) for pay changu
 app.use(
   '/api/payments/webhook',
   express.raw({ type: 'application/json' }),
@@ -52,7 +51,6 @@ app.use(sessionConfig);
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Routes
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -135,16 +133,17 @@ app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 
 app.use('/api/properties', propertyRoutes);
+app.use('/api/house-listing', propertyRoutes);
+
 app.use('/api/bookings', houseBookingRoutes);
 app.use('/api/rooms', roomRoutes);
 
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/upload', uploadRoutes);
 
-// Error handling
+app.use('/media', uploadRoutes);
+
 app.use(notFound);
 app.use(errorHandler);
 

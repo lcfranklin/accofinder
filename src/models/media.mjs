@@ -8,7 +8,9 @@ const mediaSchema = new mongoose.Schema(
       required: true,
     },
     url: { type: String, required: true },
-    type: { type: String, required: true },
+    type: { type: String, required: true, default: 'image' },
+    isPrimary: { type: Boolean, default: false },
+    roomId: { type: String, default: '-1' },
   },
   { timestamps: true },
 );

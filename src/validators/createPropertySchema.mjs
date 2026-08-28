@@ -1,41 +1,47 @@
 import Joi from 'joi';
 import { PropertyType } from '../models/enums/PropertyType.mjs';
 
+const roomSchema = Joi.object({
+  type: Joi.string().trim().required().messages({
+    'string.empty': 'Room type is required',
+  }),
+  price: Joi.number().min(0).default(0),
+  available: Joi.boolean().default(true),
+});
+
 export const createPropertySchema = Joi.object({
   title: Joi.string().trim().min(3).max(100).required().messages({
     'string.empty': 'Property title is required',
     'string.min': 'Property title must be at least 3 characters',
   }),
+
   description: Joi.string().trim().min(10).max(2000).optional(),
-  type: Joi.string()
+
+  price: Joi.number().min(0).default(0),
+
+  propertyType: Joi.string()
     .valid(...Object.values(PropertyType))
-    .required()
+    .uppercase()
+    .default(PropertyType.WHOLE)
     .messages({
-      'any.only': 'Invalid property type',
-      'string.empty': 'Property type is required',
+      'any.only': `Invalid property type. Valid values: ${Object.values(PropertyType).join(', ')}`,
     }),
-  landlordId: Joi.string().hex().length(24).optional().messages({
-    'string.length': 'landlordId must be a valid 24-character hex ID',
-  }),
-  agentId: Joi.string().hex().length(24).optional().messages({
-    'string.length': 'agentId must be a valid 24-character hex ID',
-  }),
-  location: Joi.object({
-    address: Joi.string().trim().required().messages({
-      'string.empty': 'Street address is required',
-    }),
-    city: Joi.string().trim().required().messages({
-      'string.empty': 'City is required',
-    }),
+
+  physicalAddress: Joi.object({
     district: Joi.string().trim().optional(),
-    latitude: Joi.number().min(-90).max(90).optional(),
-    longitude: Joi.number().min(-180).max(180).optional(),
-  })
-    .required()
-    .messages({
-      'any.required': 'Location details are required',
-    }),
+    village: Joi.string().trim().optional(),
+  }).optional(),
+
+  verificationStatus: Joi.string()
+    .valid('PENDING', 'VERIFIED', 'DRAFT')
+    .default('PENDING'),
+
   amenities: Joi.array().items(Joi.string().trim()).default([]),
-  rules: Joi.array().items(Joi.string().trim()).default([]),
-  images: Joi.array().items(Joi.string().uri()).default([]),
+
+  landlord: Joi.string().trim().optional(),
+  landlordPhone: Joi.string().trim().optional(),
+
+  isActive: Joi.boolean().default(true),
+
+  rooms: Joi.array().items(roomSchema).default([]),
 });
