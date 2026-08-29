@@ -1,18 +1,41 @@
 import { Booking } from '../models/Booking.mjs';
 import { Room } from '../models/Room.mjs';
+import { Property } from '../models/Property.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
 import { asyncHandler, sendResponse, withId, withIdList } from '../utils/helpers.mjs';
 import mongoose from 'mongoose';
 
 //  get all bookings (Admin/Agent utility)
+//
+//  Scoping: an ADMIN sees every booking, while an AGENT / LANDLORD only sees
+//  bookings made on rooms of properties they own (booking -> room -> property
+//  -> owner). Without this an agent could see the bookings of every other
+//  agent's properties.
 export const getBookings = asyncHandler(async (req, res, next) => {
   try {
-    const bookings = await Booking.find()
+    const role = String(req.user?.role || '').toUpperCase();
+    let filter = {};
+
+    if (role !== 'ADMIN') {
+      const ownedProps = await Property.find({ owner: req.user._id }).select('_id');
+      const ownedPropIds = ownedProps.map((p) => p._id);
+      const ownedRooms = await Room.find({
+        propertyId: { $in: ownedPropIds },
+      }).select('_id');
+      const ownedRoomIds = ownedRooms.map((r) => r._id);
+      if (ownedRoomIds.length === 0) {
+        return sendResponse(res, 200, true, 'Bookings retrieved successfully', []);
+      }
+      filter.roomId = { $in: ownedRoomIds };
+    }
+
+    const bookings = await Booking.find(filter)
       .populate('clientId', 'firstName lastName email phone')
       .populate({
         path: 'roomId',
         populate: { path: 'propertyId', select: 'title location price' },
-      });
+      })
+      .sort({ createdAt: -1 });
 
     if (!bookings) {
       return sendResponse(res, 400, false, 'Failed to retrieve bookings');

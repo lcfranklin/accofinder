@@ -143,6 +143,19 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
 
     const filter = {};
     if (owner) filter.owner = owner;
+
+    // Privacy: an authenticated, non-admin caller (agent/landlord) who does not
+    // pass an explicit "owner" only gets their own properties back, not the
+    // whole database. The endpoint stays public for clients browsing the
+    // catalogue, and admins keep seeing everything.
+    if (
+      !owner &&
+      req.user &&
+      String(req.user.role || '').toUpperCase() !== 'ADMIN'
+    ) {
+      filter.owner = req.user._id;
+    }
+
     if (propertyType) filter.propertyType = propertyType;
     if (district) filter['physicalAddress.district'] = new RegExp(district, 'i');
     if (village) filter['physicalAddress.village'] = new RegExp(village, 'i');
