@@ -134,6 +134,7 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
       amenities,
       isActive,
       search,
+      owner,
       page = 1,
       limit = 10,
       sortBy = 'createdAt',
@@ -141,6 +142,7 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
     } = req.validatedData || req.query;
 
     const filter = {};
+    if (owner) filter.owner = owner;
     if (propertyType) filter.propertyType = propertyType;
     if (district) filter['physicalAddress.district'] = new RegExp(district, 'i');
     if (village) filter['physicalAddress.village'] = new RegExp(village, 'i');
