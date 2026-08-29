@@ -1,7 +1,7 @@
 import { Booking } from '../models/Booking.mjs';
 import { Room } from '../models/Room.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
-import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import { asyncHandler, sendResponse, withId, withIdList } from '../utils/helpers.mjs';
 import mongoose from 'mongoose';
 
 //  get all bookings (Admin/Agent utility)
@@ -23,7 +23,7 @@ export const getBookings = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Bookings retrieved successfully',
-      bookings,
+      withIdList(bookings),
     );
   } catch (error) {
     next(error);
@@ -58,7 +58,7 @@ export const getBookingById = asyncHandler(async (req, res, next) => {
       );
     }
 
-    return sendResponse(res, 200, true, 'Booking found', booking);
+    return sendResponse(res, 200, true, 'Booking found', withId(booking));
   } catch (error) {
     next(error);
   }
@@ -125,7 +125,7 @@ export const createBooking = asyncHandler(async (req, res, next) => {
       201,
       true,
       'Booking created successfully',
-      populatedBooking,
+      withId(populatedBooking),
     );
   } catch (error) {
     next(error);
@@ -183,7 +183,7 @@ export const updateBooking = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Booking updated successfully',
-      updatedBooking,
+      withId(updatedBooking),
     );
   } catch (error) {
     next(error);
@@ -228,7 +228,7 @@ export const cancelBooking = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Booking cancelled successfully',
-      booking,
+      withId(booking),
     );
   } catch (error) {
     next(error);
@@ -262,7 +262,7 @@ export const confirmBooking = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Booking confirmed successfully',
-      booking,
+      withId(booking),
     );
   } catch (error) {
     next(error);

@@ -1,4 +1,5 @@
 import { User } from '../models/User.mjs';
+import { UserRole } from '../models/enums/UserRole.mjs';
 import mongoose from 'mongoose';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 
@@ -114,15 +115,17 @@ export const promoteUser = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'New role not found');
     }
 
-    const allowedRoles = ['Agent', 'Client', 'Landlord'];
+    // Normalize case and validate against the real UserRole enum values.
+    const normalizedRole = String(role).toUpperCase();
+    const allowedRoles = Object.values(UserRole);
 
-    if (!allowedRoles.includes(role)) {
+    if (!allowedRoles.includes(normalizedRole)) {
       return sendResponse(res, 400, false, 'Invalid role');
     }
 
     const user = await User.findByIdAndUpdate(
       userId,
-      { role: role },
+      { role: normalizedRole },
       { returnDocument: 'after', runValidators: true },
     ).select('-password');
 
@@ -136,6 +139,43 @@ export const promoteUser = asyncHandler(async (req, res, next) => {
       true,
       `User role changed to ${user.role}`,
       user,
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
+//  activate/deactivate a user (admin only)
+export const setUserStatus = asyncHandler(async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return sendResponse(res, 400, false, 'Invalid user ID format');
+    }
+
+    const { isActive } = req.body;
+
+    if (typeof isActive !== 'boolean') {
+      return sendResponse(res, 400, false, 'isActive must be a boolean');
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { isActive },
+      { returnDocument: 'after', runValidators: true },
+    ).select('-password');
+
+    if (!updatedUser) {
+      return sendResponse(res, 404, false, 'User not found');
+    }
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      `User ${isActive ? 'activated' : 'deactivated'} successfully`,
+      updatedUser,
     );
   } catch (error) {
     next(error);

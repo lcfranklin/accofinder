@@ -5,7 +5,7 @@ export const createRoomSchema = Joi.object({
     'string.empty': 'propertyId is required',
     'string.length': 'propertyId must be a valid 24-character hex ID',
   }),
-  type: Joi.string().trim().required().messages({
+  type: Joi.string().trim().uppercase().required().messages({
     'string.empty': 'Room type is required',
   }),
   price: Joi.number().min(0).default(0).messages({

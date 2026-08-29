@@ -8,20 +8,9 @@ export const createBookingSchema = Joi.object({
   clientId: Joi.string().hex().length(24).optional().messages({
     'string.length': 'clientId must be a valid 24-character hex ID',
   }),
-  checkInDate: Joi.date().iso().greater('now').required().messages({
-    'date.base': 'Check-in date must be a valid date',
-    'date.greater': 'Check-in date must be in the future',
-    'any.required': 'Check-in date is required',
+  bookingDate: Joi.date().iso().optional().messages({
+    'date.base': 'Booking date must be a valid date',
   }),
-  checkOutDate: Joi.date()
-    .iso()
-    .greater(Joi.ref('checkInDate'))
-    .required()
-    .messages({
-      'date.base': 'Check-out date must be a valid date',
-      'date.greater': 'Check-out date must be after the check-in date',
-      'any.required': 'Check-out date is required',
-    }),
   amount: Joi.number().positive().required().messages({
     'number.base': 'Amount must be a number',
     'number.positive': 'Amount must be greater than 0',

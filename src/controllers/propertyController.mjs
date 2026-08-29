@@ -45,10 +45,10 @@ export const createProperty = asyncHandler(async (req, res, next) => {
     // Create inline rooms atomically
     let createdRooms = [];
     if (rooms.length > 0) {
-      const roomDocs = rooms.map((r) => ({
+const roomDocs = rooms.map((r) => ({
         propertyId: property._id,
-        type: r.type,
-        price: r.price ?? 0,
+        type: String(r.type || '').toUpperCase(),
+        price: r.price || 0,
         available: r.available !== undefined ? r.available : true,
       }));
       createdRooms = await Room.insertMany(roomDocs, { ordered: true });

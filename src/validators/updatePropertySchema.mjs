@@ -17,7 +17,7 @@ export const updatePropertySchema = Joi.object({
   }).optional(),
 
   verificationStatus: Joi.string()
-    .valid('PENDING', 'VERIFIED', 'DRAFT')
+    .valid('PENDING', 'VERIFIED', 'REJECTED', 'DRAFT')
     .optional(),
 
   amenities: Joi.array().items(Joi.string().trim()).optional(),

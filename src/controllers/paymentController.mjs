@@ -1,10 +1,12 @@
-import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import { asyncHandler, sendResponse, withId } from '../utils/helpers.mjs';
 import { Booking } from '../models/Booking.mjs';
+import { Room } from '../models/Room.mjs';
 import { Payment } from '../models/Payment.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
 import { v4 as uuidv4 } from 'uuid';
 import paychangu from '../utils/paychangu.mjs';
 import { PaymentStatus } from '../models/enums/PaymentStatus.mjs';
+import mongoose from 'mongoose';
 
 const CURRENCY = process.env.PAYCHANGU_CURRENCY || 'MWK';
 
@@ -18,12 +20,24 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
   const findBookingData = await Booking.findById(finalBookingId)
     .populate({
       path: 'clientId',
-      select: 'firstName lastName email phone',
+      select: 'firstName surname email phone',
     })
     .populate('roomId');
 
   if (!findBookingData) {
     return sendResponse(res, 404, false, 'Booking not found');
+  }
+
+  const client = findBookingData.clientId || {};
+  const mobile = phoneNumber || client.phone;
+
+  if (!mobile) {
+    return sendResponse(
+      res,
+      400,
+      false,
+      'Phone number is required for mobile money payment',
+    );
   }
 
   const mobile_money_operator_ref_id =
@@ -33,11 +47,11 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
 
   const response = await paychangu.chargeMobileMoney({
     mobile_money_operator_ref_id,
-    mobile: phoneNumber,
-    amount: String(amount || 0),
-    email,
-    first_name,
-    last_name,
+    mobile,
+    amount: String(amount || findBookingData.amount || 0),
+    email: client.email,
+    first_name: client.firstName,
+    last_name: client.surname,
     charge_id: tx_ref
   });
 
@@ -51,10 +65,11 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
 
   const newPayment = new Payment({
     bookingId: finalBookingId,
-    amount: amount || findBookingData.amount,
-    paymentMethod: 'mobile_money',
-    status: PaymentStatus.PENDING,
-    transactionId: tx_ref,
+    amount: Number(amount) || findBookingData.amount,
+    method: 'mobile_money',
+    status: PaymentStatus.INITIATED,
+    transactionRef: tx_ref,
+    payoutStatus: 'Pending',
   });
 
   await newPayment.save();
@@ -62,7 +77,7 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
   return sendResponse(res, 200, true, 'Mobile money payment was successful', {
     ...response.data,
     tx_ref,
-    paymentId: newPayment._id,
+    payment: withId(newPayment),
   });
 });
 
@@ -82,10 +97,31 @@ export const getSupportedMomoOperators = asyncHandler(
 );
 
 export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
-  const { chargeId } = req.params;
+  let { chargeId } = req.params;
 
   if (!chargeId) {
     return sendResponse(res, 400, false, 'chargeId is required in parameters');
+  }
+
+  let foundPayment = await Payment.findOne({ transactionRef: chargeId });
+
+  // The app may pass a payment id (uuid or Mongo _id) instead of the
+  // PayChangu charge id; resolve it to the stored transaction ref.
+  if (!foundPayment && mongoose.Types.ObjectId.isValid(chargeId)) {
+    foundPayment = await Payment.findById(chargeId);
+    if (foundPayment) {
+      chargeId = foundPayment.transactionRef;
+    }
+  }
+
+  if (!foundPayment) {
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Payment verification status',
+      { verification: null, payment: null },
+    );
   }
 
   paychangu.auth(`Bearer ${process.env.PAYCHANGU_SECRET_KEY}`);
@@ -95,38 +131,129 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
     verifyResponse?.status === 'success' ||
     verifyResponse?.data?.status === 'success';
   const amount = verifyResponse?.data?.amount;
+  const currency = verifyResponse?.data?.currency || CURRENCY;
 
-  const foundPayment = await Payment.findOne({ transactionId: chargeId });
-
-  if (foundPayment) {
-    if (isSuccess) {
-      if (Number(foundPayment.amount) === Number(amount) && currency === CUURRENCY) {
-        foundPayment.status = PaymentStatus.SUCCESS;
-        foundPayment.paidAt = new Date();
-      } else {
-        foundPayment.status = PaymentStatus.FAILED;
-      }
+  if (isSuccess) {
+    if (
+      !foundPayment.amount ||
+      (amount && Number(foundPayment.amount) === Number(amount)) ||
+      currency === CURRENCY
+    ) {
+      foundPayment.status = PaymentStatus.SUCCESS;
+      foundPayment.paidAt = new Date();
     } else {
       foundPayment.status = PaymentStatus.FAILED;
     }
+  } else {
+    foundPayment.status = PaymentStatus.FAILED;
+  }
 
-    await foundPayment.save();
+  await foundPayment.save();
 
-    if (isSuccess && foundPayment.status === PaymentStatus.COMPLETED) {
-      if (foundPayment.bookingId) {
-        await Booking.findByIdAndUpdate(
-          foundPayment.bookingId,
-          { status: BookingStatus.PAID },
-          { returnDocument: 'after' },
-        );
+  if (foundPayment.status === PaymentStatus.SUCCESS) {
+    if (foundPayment.bookingId) {
+      await Booking.findByIdAndUpdate(
+        foundPayment.bookingId,
+        { status: BookingStatus.PAID },
+        { returnDocument: 'after' },
+      );
+    }
+  }
+
+  return sendResponse(res, 200, true, 'Payment verification status', {
+    verification: verifyResponse?.data,
+    payment: withId(foundPayment),
+  });
+});
+
+//  GET /payments/user/:userId
+//  Returns the most recent payment for a user (by their bookings). When the
+//  supplied value is actually a payment record id it is returned directly,
+//  which supports the mobile app's "refresh payment" flow.
+export const getPaymentsByUser = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return sendResponse(res, 400, false, 'User ID is required');
+  }
+
+  let payment = null;
+
+  if (mongoose.Types.ObjectId.isValid(userId)) {
+    payment = await Payment.findById(userId).populate('bookingId');
+  }
+
+  if (!payment && mongoose.Types.ObjectId.isValid(userId)) {
+    const bookings = await Booking.find({ clientId: userId })
+      .sort({ createdAt: -1 })
+      .select('_id');
+    const bookingIds = bookings.map((b) => b._id);
+    if (bookingIds.length > 0) {
+      payment = await Payment.findOne({ bookingId: { $in: bookingIds } })
+        .sort({ createdAt: -1 })
+        .populate('bookingId');
+    }
+  }
+
+  if (!payment) {
+    return sendResponse(res, 404, false, 'No payment found for this user');
+  }
+
+  return sendResponse(
+    res,
+    200,
+    true,
+    'Payment retrieved successfully',
+    withId(payment),
+  );
+});
+
+//  POST /payments/cancel
+//  The app posts the full payment payload. Cancelling marks the payment as
+//  failed and returns the booking to PENDING (releasing the room again).
+export const cancelPayment = asyncHandler(async (req, res, next) => {
+  const { id, bookingId, transactionRef } = req.body;
+
+  let payment = null;
+
+  if (id && mongoose.Types.ObjectId.isValid(id)) {
+    payment = await Payment.findById(id);
+  }
+  if (!payment && bookingId) {
+    payment = await Payment.findOne({ bookingId }).sort({ createdAt: -1 });
+  }
+  if (!payment && transactionRef) {
+    payment = await Payment.findOne({ transactionRef });
+  }
+
+  if (!payment) {
+    return sendResponse(res, 404, false, 'Payment not found to cancel');
+  }
+
+  payment.status = PaymentStatus.FAILED;
+  await payment.save();
+
+  if (payment.bookingId) {
+    const booking = await Booking.findById(payment.bookingId);
+    if (booking) {
+      booking.status = BookingStatus.PENDING;
+      await booking.save();
+
+      const room = await Room.findById(booking.roomId);
+      if (room) {
+        room.available = true;
+        await room.save();
       }
     }
   }
 
-  return sendResponse(res, 200, isSuccess, 'Payment verification status', {
-    verification: verifyResponse?.data,
-    payment: foundPayment,
-  });
+  return sendResponse(
+    res,
+    200,
+    true,
+    'Payment cancelled successfully',
+    withId(payment),
+  );
 });
 
 export const getSingleChargeDetails = asyncHandler(async (req, res, next) => {

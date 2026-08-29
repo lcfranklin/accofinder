@@ -27,7 +27,7 @@ const propertySchema = new mongoose.Schema(
 
     verificationStatus: {
       type: String,
-      enum: ['PENDING', 'VERIFIED', 'DRAFT'],
+      enum: ['PENDING', 'VERIFIED', 'REJECTED', 'DRAFT'],
       default: 'PENDING',
     },
 

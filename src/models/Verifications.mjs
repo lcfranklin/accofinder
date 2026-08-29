@@ -18,6 +18,7 @@ const verificationSchema = new mongoose.Schema(
       enum: Object.values(VerificationStatus),
       default: VerificationStatus.PENDING,
     },
+    notes: { type: String, trim: true },
     verifiedAt: { type: Date },
   },
   { timestamps: true },

@@ -137,6 +137,22 @@ export const comparePassword = async (raw, hashed) => {
   }
 };
 
+/**
+ * Map a mongoose document (or plain object) into an API object that also
+ * exposes `id` alongside `_id`. The mobile app DTOs read the `id` key.
+ */
+export const withId = (doc) => {
+  if (!doc) return doc;
+  const obj = doc.toObject ? doc.toObject() : { ...doc };
+  if (doc._id) {
+    obj.id = String(doc._id);
+    obj._id = obj.id;
+  }
+  return obj;
+};
+
+export const withIdList = (docs) => (docs || []).map(withId);
+
 // Validate if a string is a valid ObjectId
 export const validateObjectId = (id, fieldName = 'ID') => {
   if (!id || typeof id !== 'string') {

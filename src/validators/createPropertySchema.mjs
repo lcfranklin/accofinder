@@ -2,7 +2,7 @@ import Joi from 'joi';
 import { PropertyType } from '../models/enums/PropertyType.mjs';
 
 const roomSchema = Joi.object({
-  type: Joi.string().trim().required().messages({
+  type: Joi.string().trim().uppercase().required().messages({
     'string.empty': 'Room type is required',
   }),
   price: Joi.number().min(0).default(0),
@@ -33,7 +33,7 @@ export const createPropertySchema = Joi.object({
   }).optional(),
 
   verificationStatus: Joi.string()
-    .valid('PENDING', 'VERIFIED', 'DRAFT')
+    .valid('PENDING', 'VERIFIED', 'REJECTED', 'DRAFT')
     .default('PENDING'),
 
   amenities: Joi.array().items(Joi.string().trim()).default([]),

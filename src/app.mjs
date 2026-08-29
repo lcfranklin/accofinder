@@ -23,6 +23,9 @@ import propertyRoutes from './routes/propertyRoutes.mjs';
 
 import houseBookingRoutes from './routes/bookingRoutes.mjs';
 
+import agentRoutes, { agentApplicationRoutes } from './routes/agentRoutes.mjs';
+import verificationRoutes from './routes/verificationRoutes.mjs';
+
 dotenv.config();
 
 const app = express();
@@ -37,12 +40,6 @@ app.use(
     exposedHeaders: ['Set-Cookie'],
   }),
 );
-app.use(
-  '/api/payments/webhook',
-  express.raw({ type: 'application/json' }),
-  paymentRoutes,
-);
-
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -137,6 +134,10 @@ app.use('/api/house-listing', propertyRoutes);
 
 app.use('/api/bookings', houseBookingRoutes);
 app.use('/api/rooms', roomRoutes);
+
+app.use('/api/agents', agentRoutes);
+app.use('/api/agent-applications', agentApplicationRoutes);
+app.use('/api/property', verificationRoutes);
 
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
