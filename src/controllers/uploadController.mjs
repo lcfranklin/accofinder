@@ -1,6 +1,6 @@
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import s3 from '../config/s3.mjs';
+import s3, { S3_BUCKET } from '../config/s3.mjs';
 import { Media } from '../models/media.mjs';
 import { Property } from '../models/Property.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
@@ -31,14 +31,14 @@ export const uploadMedia = asyncHandler(async (req, res, next) => {
 
     await s3.send(
       new PutObjectCommand({
-        Bucket: process.env.AWS_BUCKET,
+        Bucket: S3_BUCKET,
         Key: key,
         Body: req.file.buffer,
         ContentType: req.file.mimetype || 'image/jpeg',
       }),
     );
 
-    const url = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
+    const url = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
 
     const media = await Media.create({
       propertyId: new mongoose.Types.ObjectId(propertyId),
@@ -61,7 +61,7 @@ export const getUploadUrl = asyncHandler(async (req, res, next) => {
     const key = `uploads/${Date.now()}.${extension}`;
 
     const command = new PutObjectCommand({
-      Bucket: process.env.AWS_BUCKET,
+      Bucket: S3_BUCKET,
       Key: key,
       ContentType: `image/${extension === 'jpg' ? 'jpeg' : extension}`,
     });
