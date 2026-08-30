@@ -8,25 +8,19 @@ import passport from 'passport';
  */
 export const isAuthenticated = (req, res, next) => {
   if (req.isAuthenticated && req.isAuthenticated()) {
-    console.log('--- Auth Check: Session Authenticated ---');
-    console.log('User ID:', req.user._id);
     return next();
   }
 
   passport.authenticate('jwt', { session: false }, (err, user, info) => {
     if (err) {
-      console.error('JWT Auth Error:', err);
       return next(err);
     }
 
     if (user) {
-      console.log('--- Auth Check: JWT Authenticated ---');
-      console.log('User ID:', user._id);
       req.user = user;
       return next();
     }
 
-    console.log('--- Auth Check: Not Authenticated ---');
     return sendResponse(res, 401, false, 'Not authenticated, please log in');
   })(req, res, next);
 };
