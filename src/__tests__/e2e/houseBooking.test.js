@@ -1,8 +1,8 @@
 import request from 'supertest';
 import app from '../../app.mjs';
 import User from '../../models/User.mjs';
-import HouseListing from '../../models/HouseListing.mjs';
-import HouseBooking from '../../models/HouseBooking.mjs';
+import House from '../../models/House.mjs';
+import Booking from '../../models/Booking.mjs';
 
 describe('House Booking API E2E', () => {
   let adminToken;
@@ -16,8 +16,8 @@ describe('House Booking API E2E', () => {
   beforeAll(async () => {
     // Clean up existing data
     await User.deleteMany({ email: { $in: ['admin@test.com', 'client@test.com', 'landlord@test.com'] } });
-    await HouseListing.deleteMany({});
-    await HouseBooking.deleteMany({});
+    await House.deleteMany({});
+    await Booking.deleteMany({});
 
     // Create admin user
     const adminRes = await request(app)
@@ -38,6 +38,7 @@ describe('House Booking API E2E', () => {
       });
     adminToken = adminRes.body.data.accessToken;
     adminUser = adminRes.body.data;
+    await User.findByIdAndUpdate(adminUser._id, { role: 'ADMIN' });
 
     // Create client user
     const clientRes = await request(app)
@@ -83,14 +84,14 @@ describe('House Booking API E2E', () => {
     await request(app)
       .patch(`/api/users/${landlordUser._id}/promote`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ role: 'landlord' });
+      .send({ role: 'AGENT' });
 
     // Create a house listing
-    testHouse = await HouseListing.create({
+    testHouse = await House.create({
       title: 'Test House',
       description: 'A beautiful test house',
       price: 500,
-      costCategory: 'monthly',
+      costCategory: 'Low_Cost',
       owner: landlordUser._id,
       location: 'Test Location'
     });
@@ -98,19 +99,19 @@ describe('House Booking API E2E', () => {
 
   afterAll(async () => {
     await User.deleteMany({ email: { $in: ['admin@test.com', 'client@test.com', 'landlord@test.com'] } });
-    await HouseListing.deleteMany({});
-    await HouseBooking.deleteMany({});
+    await House.deleteMany({});
+    await Booking.deleteMany({});
   });
 
-  describe('GET /api/house-booking', () => {
+  describe('GET /api/bookings', () => {
     it('should return 401 when not authenticated', async () => {
-      const res = await request(app).get('/api/house-booking');
+      const res = await request(app).get('/api/bookings');
       expect(res.statusCode).toBe(401);
     });
 
     it('should return 403 when user is not admin', async () => {
       const res = await request(app)
-        .get('/api/house-booking')
+        .get('/api/bookings')
         .set('Authorization', `Bearer ${clientToken}`);
 
       expect(res.statusCode).toBe(403);
@@ -118,7 +119,7 @@ describe('House Booking API E2E', () => {
 
     it('should return all bookings for admin', async () => {
       const res = await request(app)
-        .get('/api/house-booking')
+        .get('/api/bookings')
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.statusCode).toBe(200);
@@ -128,7 +129,7 @@ describe('House Booking API E2E', () => {
     });
   });
 
-  describe('POST /api/house-booking', () => {
+  describe('POST /api/bookings', () => {
     it('should create a booking successfully', async () => {
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() + 1);
@@ -136,7 +137,7 @@ describe('House Booking API E2E', () => {
       endDate.setMonth(endDate.getMonth() + 3);
 
       const res = await request(app)
-        .post('/api/house-booking')
+        .post('/api/bookings')
         .set('Authorization', `Bearer ${clientToken}`)
         .send({
           houseId: testHouse._id,
@@ -145,6 +146,7 @@ describe('House Booking API E2E', () => {
           specialNotes: 'Test booking notes'
         });
 
+      if (res.statusCode !== 201) console.log('201 test failed:', res.body);
       expect(res.statusCode).toBe(201);
       expect(res.body.status).toBe('success');
       expect(res.body.data).toHaveProperty('house');
@@ -155,38 +157,46 @@ describe('House Booking API E2E', () => {
 
     it('should return 401 when not authenticated', async () => {
       const res = await request(app)
-        .post('/api/house-booking')
+        .post('/api/bookings')
         .send({ houseId: testHouse._id });
 
       expect(res.statusCode).toBe(401);
     });
 
     it('should return 404 when house not found', async () => {
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() + 1);
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + 1);
+
       const res = await request(app)
-        .post('/api/house-booking')
+        .post('/api/bookings')
         .set('Authorization', `Bearer ${clientToken}`)
         .send({
           houseId: '507f1f77bcf86cd799439011',
-          startDate: new Date().toISOString(),
-          endDate: new Date().toISOString()
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
         });
 
+      if (res.statusCode !== 404) console.log('404 test failed:', res.body);
       expect(res.statusCode).toBe(404);
       expect(res.body.message).toBe('House not found');
     });
   });
 
-  describe('PATCH /api/house-booking/:id/cancel', () => {
+  describe('PATCH /api/bookings/:id/cancel', () => {
     let testBooking;
 
     beforeEach(async () => {
+      await Booking.deleteMany({});
+      
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() + 1);
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + 2);
 
       const bookingRes = await request(app)
-        .post('/api/house-booking')
+        .post('/api/bookings')
         .set('Authorization', `Bearer ${clientToken}`)
         .send({
           houseId: testHouse._id,
@@ -198,7 +208,7 @@ describe('House Booking API E2E', () => {
 
     it('should cancel a pending booking', async () => {
       const res = await request(app)
-        .patch(`/api/house-booking/${testBooking._id}/cancel`)
+        .patch(`/api/bookings/${testBooking._id}/cancel`)
         .set('Authorization', `Bearer ${clientToken}`);
 
       expect(res.statusCode).toBe(200);

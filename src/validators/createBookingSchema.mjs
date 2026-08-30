@@ -1,27 +1,20 @@
 import Joi from 'joi';
 
 export const createBookingSchema = Joi.object({
-  houseId: Joi.string().hex().length(24).required().messages({
-    'any.required': 'House ID is required',
-    'string.hex': 'House ID must be a valid MongoDB ObjectId',
-    'string.length': 'House ID must be 24 characters',
+  roomId: Joi.string().hex().length(24).required().messages({
+    'string.empty': 'roomId is required',
+    'string.length': 'roomId must be a valid 24-character hex ID',
   }),
-
-  startDate: Joi.date().iso().greater('now').required().messages({
-    'any.required': 'Start date is required',
-    'date.base': 'Start date must be a valid date',
-    'date.greater': 'Start date must be in the future',
-    'date.format': 'Start date must be in ISO format (YYYY-MM-DD)',
+  clientId: Joi.string().hex().length(24).optional().messages({
+    'string.length': 'clientId must be a valid 24-character hex ID',
   }),
-
-  endDate: Joi.date().iso().greater(Joi.ref('startDate')).required().messages({
-    'any.required': 'End date is required',
-    'date.base': 'End date must be a valid date',
-    'date.greater': 'End date must be after start date',
-    'date.format': 'End date must be in ISO format (YYYY-MM-DD)',
+  bookingDate: Joi.date().iso().optional().messages({
+    'date.base': 'Booking date must be a valid date',
   }),
-
-  specialNotes: Joi.string().trim().max(500).optional().messages({
-    'string.max': 'Special notes cannot exceed 500 characters',
+  amount: Joi.number().positive().required().messages({
+    'number.base': 'Amount must be a number',
+    'number.positive': 'Amount must be greater than 0',
+    'any.required': 'Amount is required',
   }),
-}).options({ abortEarly: false });
+  commissionAmount: Joi.number().min(0).default(0),
+});

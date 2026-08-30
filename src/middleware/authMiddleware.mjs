@@ -10,6 +10,9 @@ export const isAuthenticated = (req, res, next) => {
   if (req.isAuthenticated && req.isAuthenticated()) {
     console.log('--- Auth Check: Session Authenticated ---');
     console.log('User ID:', req.user._id);
+    if (req.user.isActive === false) {
+      return sendResponse(res, 403, false, 'Account is deactivated');
+    }
     return next();
   }
 
@@ -18,11 +21,14 @@ export const isAuthenticated = (req, res, next) => {
       console.error('JWT Auth Error:', err);
       return next(err);
     }
-    
+
     if (user) {
       console.log('--- Auth Check: JWT Authenticated ---');
       console.log('User ID:', user._id);
-      req.user = user; 
+      req.user = user;
+      if (user.isActive === false) {
+        return sendResponse(res, 403, false, 'Account is deactivated');
+      }
       return next();
     }
 
@@ -37,7 +43,12 @@ export const isAuthenticated = (req, res, next) => {
 export const checkRole = (roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
-      return sendResponse(res, 403, false, 'Access denied: insufficient permissions');
+      return sendResponse(
+        res,
+        403,
+        false,
+        'Access denied: insufficient permissions',
+      );
     }
     next();
   };

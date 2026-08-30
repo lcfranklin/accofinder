@@ -14,26 +14,32 @@ import notificationRoutes from './routes/notificationRoutes.mjs';
 import disputeRoutes from './routes/disputeRoutes.mjs';
 import paymentRoutes from './routes/paymentRoutes.mjs';
 import authRoutes from './routes/authRoutes.mjs';
-import houseBookingRoutes from './routes/houseBookingRoutes.mjs';
-import houseListingRoutes from './routes/houseListingRoutes.mjs';
-import uploadRoutes from "./routes/uploadRoutes.mjs";
+
+import uploadRoutes from './routes/uploadRoutes.mjs';
 import { notFound, errorHandler } from './middleware/errorMiddleware.mjs';
+
+import roomRoutes from './routes/roomRoutes.mjs';
+import propertyRoutes from './routes/propertyRoutes.mjs';
+
+import houseBookingRoutes from './routes/bookingRoutes.mjs';
+
+import agentRoutes, { agentApplicationRoutes } from './routes/agentRoutes.mjs';
+import verificationRoutes from './routes/verificationRoutes.mjs';
 
 dotenv.config();
 
 const app = express();
 
 app.use(helmet());
-app.use(cors({ 
-    origin: true,  
-    credentials: true, 
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept'],
-    exposedHeaders: ['Set-Cookie']
-}));
-// 3. Webhook route (needs raw body) for pay changu
-app.use("/api/payments/webhook", express.raw({ type: "application/json" }), paymentRoutes);
-
+    exposedHeaders: ['Set-Cookie'],
+  }),
+);
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -42,9 +48,8 @@ app.use(sessionConfig);
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Routes
 app.get('/', (req, res) => {
-    res.send(`
+  res.send(`
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -122,15 +127,24 @@ app.get('/', (req, res) => {
     `);
 });
 app.use('/api/users', userRoutes);
-app.use('/api/house-listing', houseListingRoutes);
-app.use('/api/house-booking', houseBookingRoutes);
+app.use('/api/auth', authRoutes);
+
+app.use('/api/properties', propertyRoutes);
+app.use('/api/house-listing', propertyRoutes);
+
+app.use('/api/bookings', houseBookingRoutes);
+app.use('/api/rooms', roomRoutes);
+
+app.use('/api/agents', agentRoutes);
+app.use('/api/agent-applications', agentApplicationRoutes);
+app.use('/api/property', verificationRoutes);
+
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/auth', authRoutes);
-app.use("/api/upload", uploadRoutes);
 
-// Error handling
+app.use('/media', uploadRoutes);
+
 app.use(notFound);
 app.use(errorHandler);
 

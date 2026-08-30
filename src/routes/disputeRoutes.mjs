@@ -1,18 +1,42 @@
 import express from 'express';
 import * as disputeController from '../controllers/disputeController.mjs';
-import {isAuthenticated, checkRole} from '../middleware/authMiddleware.mjs';
-
+import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
 
 const disputeRoutes = express.Router();
 
-//landlord and Ternats can see their own disputes but Admins can see ALL
-disputeRoutes.get('/', isAuthenticated,checkRole(['landlord', 'client', 'admin']), disputeController.getDisputes);
+// Get all disputes (Admin / Support view)
+disputeRoutes.get(
+  '/',
+  isAuthenticated,
+  checkRole(['ADMIN', 'AGENT']),
+  disputeController.getAllDisputes,
+);
 
-//Only authenticated users can create disputes
-disputeRoutes.post('/', isAuthenticated, disputeController.createDispute);
+// Get single dispute by ID
+disputeRoutes.get(
+  '/:id',
+  isAuthenticated,
+  checkRole(['ADMIN', 'AGENT', 'CLIENT']),
+  disputeController.getDisputeById,
+);
 
-//only Admins or Lamdlords can resolve dispute
-disputeRoutes.patch('/:id/resolve', isAuthenticated, checkRole(['admin', 'landlord']), disputeController.resolveDispute);
+// Raise a new dispute
+disputeRoutes.post('/', isAuthenticated, disputeController.raiseDispute);
 
+// Resolve or reject a dispute
+disputeRoutes.patch(
+  '/:id/resolve',
+  isAuthenticated,
+  checkRole(['ADMIN', 'AGENT']),
+  disputeController.resolveDispute,
+);
+
+// Delete a dispute record
+disputeRoutes.delete(
+  '/:id',
+  isAuthenticated,
+  checkRole(['ADMIN']),
+  disputeController.deleteDispute,
+);
 
 export default disputeRoutes;

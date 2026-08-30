@@ -6,18 +6,21 @@ import { updateProfileSchema } from '../validators/updateProfileSchema.mjs';
 
 const userRoutes = express.Router();
 
-userRoutes.get('/', isAuthenticated, checkRole(['admin']), userController.getUsers);
+userRoutes.get('/', isAuthenticated, checkRole(['ADMIN']), userController.getUsers);
 
-userRoutes.get('/:id', isAuthenticated, checkRole(['admin']), userController.getUserById);
+userRoutes.get('/:id', isAuthenticated, checkRole(['ADMIN']), userController.getUserById);
 
 userRoutes.get('/me/profile', isAuthenticated,userController.getMyProfile)
 // Update user profile (self)
-userRoutes.patch('/me/profile', isAuthenticated, checkRole(['landlord', 'client', 'student', 'admin']), validateRequest(updateProfileSchema), userController.updateMyProfile);
+userRoutes.patch('/me/profile', isAuthenticated, checkRole(['AGENT', 'CLIENT', 'ADMIN']), validateRequest(updateProfileSchema), userController.updateMyProfile);
 
 // Delete a user (admin only)
-userRoutes.delete('/:id', isAuthenticated,checkRole(['admin']), userController.deleteUser);
+userRoutes.delete('/:id', isAuthenticated,checkRole(['ADMIN']), userController.deleteUser);
 
 // Promote a user (admin only)
-userRoutes.patch('/:id/promote', isAuthenticated, checkRole(['admin']), userController.promoteUser);
+userRoutes.patch('/:id/promote', isAuthenticated, checkRole(['ADMIN']), userController.promoteUser);
+
+// Activate / deactivate a user (admin only)
+userRoutes.patch('/:id/status', isAuthenticated, checkRole(['ADMIN']), userController.setUserStatus);
 
 export default userRoutes;

@@ -1,5 +1,5 @@
 import passport from 'passport';
-import User from '../../models/User.mjs';
+import { User } from '../../models/User.mjs';
 import localStrategy from './local.strategy.mjs';
 import googleStrategy from './google.strategy.mjs';
 import jwtStrategy from './jwt.strategy.mjs';

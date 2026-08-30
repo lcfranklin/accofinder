@@ -1,38 +1,28 @@
 import mongoose from 'mongoose';
 
-const recommendationSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
+const recommendationSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    house: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Property',
+      required: true,
+    },
+    score: {
+      type: Number,
+      default: 0,
+    },
+    reasons: { type: [String], default: [] },
   },
-  house: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'House',
-    required: true,
-  },
-  score: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 1,
-  },
-  recommendationType: {
-    type: String,
-    enum: ['content-based', 'collaborative', 'hybrid'],
-    default: 'content-based',
-  },
-  metadata: {
-    matchedFeatures: [String],
-    reason: String,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  }
-});
+  { timestamps: true },
+);
 
-recommendationSchema.index({ user: 1, house: 1 }, { unique: true });
-
-const Recommendation = mongoose.model('Recommendation', recommendationSchema);
+export const Recommendation = mongoose.model(
+  'Recommendation',
+  recommendationSchema,
+);
 export default Recommendation;

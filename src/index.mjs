@@ -1,4 +1,3 @@
-// index.mjs
 import { createServer } from 'http';
 import app, { connectDB } from './app.mjs';
 import { initSocket } from './sockets/socketHandler.mjs';

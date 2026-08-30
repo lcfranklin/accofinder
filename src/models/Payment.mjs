@@ -1,47 +1,26 @@
 import mongoose from 'mongoose';
+import { PaymentStatus } from './enums/PaymentStatus.mjs';
 
-const { Schema, model, Types } = mongoose;
-
-const paymentSchema = new Schema({
-    client: {
-        type: Types.ObjectId,
-        ref: 'User',
-        required: true
+const paymentSchema = new mongoose.Schema(
+  {
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Booking',
+      required: true,
     },
-    
-    amount: {
-        type: Number,
-        required: true,
-        min: 0
-    },
-    currency: {
-        type: String,
-        default: 'MK'
-    },
-    paymentMethod: {
-        type: String,
-        enum: ['card', 'TNM', 'Airtel'],
-        default: 'card'
-    },
+    amount: { type: Number, required: true },
+    method: { type: String, required: true },
     status: {
-        type: String,
-        enum: ['pending', 'completed', 'failed', 'refunded'],
-        default: 'pending'
+      type: String,
+      enum: Object.values(PaymentStatus),
+      default: PaymentStatus.INITIATED,
     },
-    transactionId: {
-        type: String,
-        trim: true
-    },
-    refundedAt: {
-        type: Date,
-        default: Date.now
-    },
-    paidAt: Date,
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
-});
+    transactionRef: { type: String, required: true, unique: true },
+    payoutStatus: { type: String, required: true, default: 'Pending' },
+    payoutDate: { type: Date },
+    paidAt: { type: Date },
+  },
+  { timestamps: true },
+);
 
-const Payment = model('Payment', paymentSchema);
-export default Payment;
+export const Payment = mongoose.model('Payment', paymentSchema);

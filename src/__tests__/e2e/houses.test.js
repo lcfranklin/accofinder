@@ -1,8 +1,17 @@
 import request from "supertest";
 import app from "../../app.mjs";
-import HouseListing from "../../models/HouseListing.mjs";
+import House from "../../models/House.mjs";
 
-jest.mock("../../models/HouseListing.mjs");
+jest.mock("../../models/House.mjs");
+
+jest.mock("../../middleware/authMiddleware.mjs", () => ({
+  isAuthenticated: jest.fn((req, res, next) => {
+    req.user = { _id: "6a057ca99d9d0fbeb233073d", role: "ADMIN" };
+    next();
+  }),
+  checkRole: () => (req, res, next) => next(),
+}));
+
 
 describe("House Listing API", () => {
 
@@ -18,18 +27,19 @@ describe("House Listing API", () => {
         { _id: "2", title: "House 2" }
       ];
 
-      HouseListing.find.mockReturnValue({
+      House.find.mockReturnValue({
         populate: jest.fn().mockResolvedValue(mockHouses)
       });
 
       const res = await request(app).get("/api/house-listing");
 
       expect(res.statusCode).toBe(200);
-      expect(res.body).toEqual(mockHouses);
+      expect(res.body.status).toBe("success");
+      expect(res.body.data).toEqual(mockHouses);
     });
 
     it("should handle errors", async () => {
-      HouseListing.find.mockImplementation(() => {
+      House.find.mockImplementation(() => {
         throw new Error("DB Error");
       });
 
@@ -43,9 +53,13 @@ describe("House Listing API", () => {
   describe("POST /api/house-listing", () => {
 
     it("should create a new house", async () => {
-      const newHouse = { title: "New House" };
+      const newHouse = { 
+        title: "New House",
+        price: 1000,
+        costCategory: "Medium_Cost"
+      };
 
-      HouseListing.mockImplementation(() => ({
+      House.mockImplementation(() => ({
         save: jest.fn().mockResolvedValue(newHouse)
       }));
 
@@ -54,11 +68,12 @@ describe("House Listing API", () => {
         .send(newHouse);
 
       expect(res.statusCode).toBe(201);
-      expect(res.body).toEqual(newHouse);
+      expect(res.body.status).toBe("success");
+      expect(res.body.data).toEqual(newHouse);
     });
 
     it("should handle validation errors", async () => {
-      HouseListing.mockImplementation(() => ({
+      House.mockImplementation(() => ({
         save: jest.fn().mockRejectedValue(new Error("Validation failed"))
       }));
 
