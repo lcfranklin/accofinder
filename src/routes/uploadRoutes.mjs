@@ -6,6 +6,7 @@ import {
   getUploadUrl,
   getMediaByProperty,
   deleteMedia,
+  updateMedia,
 } from '../controllers/uploadController.mjs';
 
 const router = express.Router();
@@ -29,5 +30,6 @@ router.get('/presigned-url', isAuthenticated, getUploadUrl);
 
 router.get('/property/:propertyId', getMediaByProperty);
 router.delete('/:id', isAuthenticated, deleteMedia);
+router.patch('/:id', isAuthenticated, updateMedia);
 
 export default router;

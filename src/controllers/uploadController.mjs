@@ -149,3 +149,39 @@ export const deleteMedia = asyncHandler(async (req, res, next) => {
     next(error);
   }
 });
+
+export const updateMedia = asyncHandler(async (req, res, next) => {
+  try {
+    const mediaId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(mediaId)) {
+      return sendResponse(res, 400, false, 'Invalid media ID format');
+    }
+
+    const { isPrimary } = req.body || {};
+    if (isPrimary === undefined) {
+      return sendResponse(res, 400, false, 'Missing required field: isPrimary');
+    }
+
+    const media = await Media.findById(mediaId);
+    if (!media) {
+      return sendResponse(res, 404, false, 'Media record not found');
+    }
+
+    if (isPrimary === true) {
+      // A property has a single cover photo: demote the current ones first so
+      // toggling one photo on reflects everywhere the cover is used.
+      await Media.updateMany(
+        { propertyId: media.propertyId, _id: { $ne: media._id } },
+        { isPrimary: false },
+      );
+    }
+
+    media.isPrimary = Boolean(isPrimary);
+    await media.save();
+
+    return sendResponse(res, 200, true, 'Media updated successfully', media);
+  } catch (error) {
+    next(error);
+  }
+});
