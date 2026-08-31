@@ -60,6 +60,16 @@ const userSchema = new mongoose.Schema({
     enum: Object.values(UserRole),
     required: true,
   },
+  assignedArea: {
+    type: String,
+    trim: true,
+  },
+  commissionRate: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

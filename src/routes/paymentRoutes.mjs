@@ -4,6 +4,8 @@ import {
   getSupportedMomoOperators,
   verifyMobilePayment,
   getSingleChargeDetails,
+  getPaymentsByUser,
+  cancelPayment,
 } from '../controllers/paymentController.mjs';
 
 import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
@@ -41,5 +43,11 @@ paymentRoutes.get(
   isAuthenticated,
   getSingleChargeDetails,
 );
+
+// Get the latest payment for a user (supports the app's payment refresh)
+paymentRoutes.get('/user/:userId', isAuthenticated, getPaymentsByUser);
+
+// Cancel a payment (returns booking to PENDING and releases the room)
+paymentRoutes.post('/cancel', isAuthenticated, cancelPayment);
 
 export default paymentRoutes;

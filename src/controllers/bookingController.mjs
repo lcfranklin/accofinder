@@ -1,18 +1,41 @@
 import { Booking } from '../models/Booking.mjs';
 import { Room } from '../models/Room.mjs';
+import { Property } from '../models/Property.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
-import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import { asyncHandler, sendResponse, withId, withIdList } from '../utils/helpers.mjs';
 import mongoose from 'mongoose';
 
 //  get all bookings (Admin/Agent utility)
+//
+//  Scoping: an ADMIN sees every booking, while an AGENT / LANDLORD only sees
+//  bookings made on rooms of properties they own (booking -> room -> property
+//  -> owner). Without this an agent could see the bookings of every other
+//  agent's properties.
 export const getBookings = asyncHandler(async (req, res, next) => {
   try {
-    const bookings = await Booking.find()
+    const role = String(req.user?.role || '').toUpperCase();
+    let filter = {};
+
+    if (role !== 'ADMIN') {
+      const ownedProps = await Property.find({ owner: req.user._id }).select('_id');
+      const ownedPropIds = ownedProps.map((p) => p._id);
+      const ownedRooms = await Room.find({
+        propertyId: { $in: ownedPropIds },
+      }).select('_id');
+      const ownedRoomIds = ownedRooms.map((r) => r._id);
+      if (ownedRoomIds.length === 0) {
+        return sendResponse(res, 200, true, 'Bookings retrieved successfully', []);
+      }
+      filter.roomId = { $in: ownedRoomIds };
+    }
+
+    const bookings = await Booking.find(filter)
       .populate('clientId', 'firstName lastName email phone')
       .populate({
         path: 'roomId',
         populate: { path: 'propertyId', select: 'title location price' },
-      });
+      })
+      .sort({ createdAt: -1 });
 
     if (!bookings) {
       return sendResponse(res, 400, false, 'Failed to retrieve bookings');
@@ -23,7 +46,7 @@ export const getBookings = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Bookings retrieved successfully',
-      bookings,
+      withIdList(bookings),
     );
   } catch (error) {
     next(error);
@@ -58,7 +81,7 @@ export const getBookingById = asyncHandler(async (req, res, next) => {
       );
     }
 
-    return sendResponse(res, 200, true, 'Booking found', booking);
+    return sendResponse(res, 200, true, 'Booking found', withId(booking));
   } catch (error) {
     next(error);
   }
@@ -125,7 +148,7 @@ export const createBooking = asyncHandler(async (req, res, next) => {
       201,
       true,
       'Booking created successfully',
-      populatedBooking,
+      withId(populatedBooking),
     );
   } catch (error) {
     next(error);
@@ -183,7 +206,7 @@ export const updateBooking = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Booking updated successfully',
-      updatedBooking,
+      withId(updatedBooking),
     );
   } catch (error) {
     next(error);
@@ -228,7 +251,7 @@ export const cancelBooking = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Booking cancelled successfully',
-      booking,
+      withId(booking),
     );
   } catch (error) {
     next(error);
@@ -262,7 +285,7 @@ export const confirmBooking = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Booking confirmed successfully',
-      booking,
+      withId(booking),
     );
   } catch (error) {
     next(error);

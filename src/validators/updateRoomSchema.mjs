@@ -1,7 +1,7 @@
 import Joi from 'joi';
 
 export const updateRoomSchema = Joi.object({
-  type: Joi.string().trim().optional(),
+  type: Joi.string().trim().uppercase().optional(),
   price: Joi.number().min(0).optional().messages({
     'number.base': 'Price must be a number',
   }),

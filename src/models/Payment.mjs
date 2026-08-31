@@ -18,6 +18,7 @@ const paymentSchema = new mongoose.Schema(
     transactionRef: { type: String, required: true, unique: true },
     payoutStatus: { type: String, required: true, default: 'Pending' },
     payoutDate: { type: Date },
+    paidAt: { type: Date },
   },
   { timestamps: true },
 );

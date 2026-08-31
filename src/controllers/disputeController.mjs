@@ -1,5 +1,7 @@
 import { Dispute } from '../models/Dispute.mjs';
 import { Booking } from '../models/Booking.mjs';
+import { Room } from '../models/Room.mjs';
+import { Property } from '../models/Property.mjs';
 import { DisputeStatus } from '../models/enums/DisputeStatus.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import mongoose from 'mongoose';
@@ -57,14 +59,42 @@ export const raiseDispute = asyncHandler(async (req, res, next) => {
 });
 
 //  get all disputes (Admin / Support utility)
+//
+//  Scoping: an ADMIN sees every dispute, while an AGENT only sees disputes
+//  raised on bookings for rooms of the agent's own properties (dispute ->
+//  booking -> room -> property -> owner).
 export const getAllDisputes = asyncHandler(async (req, res, next) => {
   try {
-    const disputes = await Dispute.find()
+    const role = String(req.user?.role || '').toUpperCase();
+    let filter = {};
+
+    if (role !== 'ADMIN') {
+      const ownedProps = await Property.find({ owner: req.user._id }).select('_id');
+      const ownedPropIds = ownedProps.map((p) => p._id);
+      const ownedRooms = await Room.find({
+        propertyId: { $in: ownedPropIds },
+      }).select('_id');
+      const ownedRoomIds = ownedRooms.map((r) => r._id);
+      if (ownedRoomIds.length === 0) {
+        return sendResponse(res, 200, true, 'Disputes retrieved successfully', []);
+      }
+      const ownedBookings = await Booking.find({
+        roomId: { $in: ownedRoomIds },
+      }).select('_id');
+      const ownedBookingIds = ownedBookings.map((b) => b._id);
+      if (ownedBookingIds.length === 0) {
+        return sendResponse(res, 200, true, 'Disputes retrieved successfully', []);
+      }
+      filter.bookingId = { $in: ownedBookingIds };
+    }
+
+    const disputes = await Dispute.find(filter)
       .populate({
         path: 'bookingId',
         populate: { path: 'roomId' },
       })
-      .populate('raisedBy', 'firstName lastName email phone');
+      .populate('raisedBy', 'firstName lastName email phone')
+      .sort({ createdAt: -1 });
 
     if (!disputes) {
       return sendResponse(res, 400, false, 'Failed to retrieve disputes');

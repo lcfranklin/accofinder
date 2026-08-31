@@ -4,9 +4,8 @@ import { PaymentStatus } from '../models/enums/PaymentStatus.mjs';
 export const processMobilePaymentSchema = Joi.object({
   phoneNumber: Joi.string()
     .pattern(/^[+]*[(]?[0-9]{1,4}[)]?[-\s./0-9]*$/)
-    .required()
+    .optional()
     .messages({
-      'any.required': 'Phone number is required',
       'string.empty': 'Phone number cannot be empty',
       'string.pattern.base': 'Please enter a valid phone number',
     }),
@@ -22,8 +21,7 @@ export const processMobilePaymentSchema = Joi.object({
       'any.required': 'Amount is required',
       'string.empty': 'Amount cannot be empty',
     }),
-  operatorRefId: Joi.string().required().messages({
-    'any.required': 'Operator Reference ID is required',
+  operatorRefId: Joi.string().optional().messages({
     'string.empty': 'Operator Reference ID cannot be empty',
   }),
 });

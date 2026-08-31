@@ -6,13 +6,59 @@ import mongoose from 'mongoose';
 // get all rooms
 export const getAllRooms = asyncHandler(async (req, res, next) => {
   try {
-    const rooms = await Room.find().populate(
-      'propertyId',
-      'title location price status',
-    );
+    const {
+      propertyId,
+      roomType,
+      minPrice,
+      maxPrice,
+      isAvailable,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
-    if (!rooms) {
-      return sendResponse(res, 400, false, 'Failed to retrieve rooms');
+    const filter = {};
+
+    if (propertyId && mongoose.Types.ObjectId.isValid(propertyId)) {
+      filter.propertyId = propertyId;
+    }
+
+    if (roomType) {
+      filter.type = String(roomType).toUpperCase();
+    }
+
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      filter.price = {};
+      if (minPrice !== undefined && minPrice !== '') {
+        filter.price.$gte = Number(minPrice);
+      }
+      if (maxPrice !== undefined && maxPrice !== '') {
+        filter.price.$lte = Number(maxPrice);
+      }
+    }
+
+    if (isAvailable !== undefined && isAvailable !== '') {
+      filter.available = isAvailable === 'true' || isAvailable === true;
+    }
+
+    const skip = (Number(page) - 1) * Number(limit || 10);
+
+    const [rooms, total] = await Promise.all([
+      Room.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .populate('propertyId', 'title location price status'),
+      Room.countDocuments(filter),
+    ]);
+
+    if (!rooms || rooms.length === 0) {
+      return sendResponse(
+        res,
+        200,
+        true,
+        'No rooms found matching the filters',
+        [],
+      );
     }
 
     return sendResponse(res, 200, true, 'Rooms retrieved successfully', rooms);

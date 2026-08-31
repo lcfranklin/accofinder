@@ -20,4 +20,7 @@ userRoutes.delete('/:id', isAuthenticated,checkRole(['ADMIN']), userController.d
 // Promote a user (admin only)
 userRoutes.patch('/:id/promote', isAuthenticated, checkRole(['ADMIN']), userController.promoteUser);
 
+// Activate / deactivate a user (admin only)
+userRoutes.patch('/:id/status', isAuthenticated, checkRole(['ADMIN']), userController.setUserStatus);
+
 export default userRoutes;

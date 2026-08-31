@@ -1,6 +1,6 @@
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import s3 from '../config/s3.mjs';
+import s3, { S3_BUCKET, deleteS3ObjectByUrl } from '../config/s3.mjs';
 import { Media } from '../models/media.mjs';
 import { Property } from '../models/Property.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
@@ -31,14 +31,14 @@ export const uploadMedia = asyncHandler(async (req, res, next) => {
 
     await s3.send(
       new PutObjectCommand({
-        Bucket: process.env.AWS_BUCKET,
+        Bucket: S3_BUCKET,
         Key: key,
         Body: req.file.buffer,
         ContentType: req.file.mimetype || 'image/jpeg',
       }),
     );
 
-    const url = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
+    const url = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
 
     const media = await Media.create({
       propertyId: new mongoose.Types.ObjectId(propertyId),
@@ -61,7 +61,7 @@ export const getUploadUrl = asyncHandler(async (req, res, next) => {
     const key = `uploads/${Date.now()}.${extension}`;
 
     const command = new PutObjectCommand({
-      Bucket: process.env.AWS_BUCKET,
+      Bucket: S3_BUCKET,
       Key: key,
       ContentType: `image/${extension === 'jpg' ? 'jpeg' : extension}`,
     });
@@ -144,7 +144,54 @@ export const deleteMedia = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, 'Media record not found or already deleted');
     }
 
+    // Also remove the underlying file from S3 so storage doesn't leak.
+    if (deletedMedia.url) {
+      try {
+        await deleteS3ObjectByUrl(deletedMedia.url);
+      } catch (err) {
+        // The DB row is already gone; a failed S3 delete shouldn't fail the
+        // request, but log it so orphaned objects can be traced.
+        console.error(`Failed to delete S3 object for media ${mediaId}:`, err.message || err);
+      }
+    }
+
     return sendResponse(res, 200, true, `Media record ${mediaId} deleted successfully`);
+  } catch (error) {
+    next(error);
+  }
+});
+
+export const updateMedia = asyncHandler(async (req, res, next) => {
+  try {
+    const mediaId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(mediaId)) {
+      return sendResponse(res, 400, false, 'Invalid media ID format');
+    }
+
+    const { isPrimary } = req.body || {};
+    if (isPrimary === undefined) {
+      return sendResponse(res, 400, false, 'Missing required field: isPrimary');
+    }
+
+    const media = await Media.findById(mediaId);
+    if (!media) {
+      return sendResponse(res, 404, false, 'Media record not found');
+    }
+
+    if (isPrimary === true) {
+      // A property has a single cover photo: demote the current ones first so
+      // toggling one photo on reflects everywhere the cover is used.
+      await Media.updateMany(
+        { propertyId: media.propertyId, _id: { $ne: media._id } },
+        { isPrimary: false },
+      );
+    }
+
+    media.isPrimary = Boolean(isPrimary);
+    await media.save();
+
+    return sendResponse(res, 200, true, 'Media updated successfully', media);
   } catch (error) {
     next(error);
   }

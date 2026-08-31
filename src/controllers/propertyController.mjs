@@ -1,5 +1,7 @@
 import { Property } from '../models/Property.mjs';
 import { Room } from '../models/Room.mjs';
+import { Media } from '../models/media.mjs';
+import { deleteS3ObjectsByUrls } from '../config/s3.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import mongoose from 'mongoose';
 
@@ -45,10 +47,10 @@ export const createProperty = asyncHandler(async (req, res, next) => {
     // Create inline rooms atomically
     let createdRooms = [];
     if (rooms.length > 0) {
-      const roomDocs = rooms.map((r) => ({
+const roomDocs = rooms.map((r) => ({
         propertyId: property._id,
-        type: r.type,
-        price: r.price ?? 0,
+        type: String(r.type || '').toUpperCase(),
+        price: r.price || 0,
         available: r.available !== undefined ? r.available : true,
       }));
       createdRooms = await Room.insertMany(roomDocs, { ordered: true });
@@ -134,6 +136,7 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
       amenities,
       isActive,
       search,
+      owner,
       page = 1,
       limit = 10,
       sortBy = 'createdAt',
@@ -141,6 +144,20 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
     } = req.validatedData || req.query;
 
     const filter = {};
+    if (owner) filter.owner = owner;
+
+    // Privacy: an authenticated, non-admin caller (agent/landlord) who does not
+    // pass an explicit "owner" only gets their own properties back, not the
+    // whole database. The endpoint stays public for clients browsing the
+    // catalogue, and admins keep seeing everything.
+    if (
+      !owner &&
+      req.user &&
+      String(req.user.role || '').toUpperCase() !== 'ADMIN'
+    ) {
+      filter.owner = req.user._id;
+    }
+
     if (propertyType) filter.propertyType = propertyType;
     if (district) filter['physicalAddress.district'] = new RegExp(district, 'i');
     if (village) filter['physicalAddress.village'] = new RegExp(village, 'i');
@@ -226,7 +243,21 @@ export const deleteProperty = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, 'Failed to delete property or property not found');
     }
 
+    // Remove related rooms.
     await Room.deleteMany({ propertyId });
+
+    // Remove related media records AND their actual files from S3 so images do
+    // not leak as orphaned objects in the bucket.
+    const mediaList = await Media.find({ propertyId });
+    const urls = mediaList.map((m) => m.url).filter(Boolean);
+    if (urls.length) {
+      try {
+        await deleteS3ObjectsByUrls(urls);
+      } catch (err) {
+        console.error(`Failed to delete S3 objects for property ${propertyId}:`, err.message || err);
+      }
+    }
+    await Media.deleteMany({ propertyId });
 
     return sendResponse(res, 200, true, `Property with id ${propertyId} deleted successfully`);
   } catch (error) {
