@@ -1,5 +1,7 @@
 import { Property } from '../models/Property.mjs';
 import { Room } from '../models/Room.mjs';
+import { Media } from '../models/media.mjs';
+import { deleteS3ObjectsByUrls } from '../config/s3.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import mongoose from 'mongoose';
 
@@ -241,7 +243,21 @@ export const deleteProperty = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, 'Failed to delete property or property not found');
     }
 
+    // Remove related rooms.
     await Room.deleteMany({ propertyId });
+
+    // Remove related media records AND their actual files from S3 so images do
+    // not leak as orphaned objects in the bucket.
+    const mediaList = await Media.find({ propertyId });
+    const urls = mediaList.map((m) => m.url).filter(Boolean);
+    if (urls.length) {
+      try {
+        await deleteS3ObjectsByUrls(urls);
+      } catch (err) {
+        console.error(`Failed to delete S3 objects for property ${propertyId}:`, err.message || err);
+      }
+    }
+    await Media.deleteMany({ propertyId });
 
     return sendResponse(res, 200, true, `Property with id ${propertyId} deleted successfully`);
   } catch (error) {

@@ -1,6 +1,6 @@
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import s3, { S3_BUCKET } from '../config/s3.mjs';
+import s3, { S3_BUCKET, deleteS3ObjectByUrl } from '../config/s3.mjs';
 import { Media } from '../models/media.mjs';
 import { Property } from '../models/Property.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
@@ -142,6 +142,17 @@ export const deleteMedia = asyncHandler(async (req, res, next) => {
 
     if (!deletedMedia) {
       return sendResponse(res, 404, false, 'Media record not found or already deleted');
+    }
+
+    // Also remove the underlying file from S3 so storage doesn't leak.
+    if (deletedMedia.url) {
+      try {
+        await deleteS3ObjectByUrl(deletedMedia.url);
+      } catch (err) {
+        // The DB row is already gone; a failed S3 delete shouldn't fail the
+        // request, but log it so orphaned objects can be traced.
+        console.error(`Failed to delete S3 object for media ${mediaId}:`, err.message || err);
+      }
     }
 
     return sendResponse(res, 200, true, `Media record ${mediaId} deleted successfully`);
