@@ -17,6 +17,11 @@ const agentApplicationSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    reason: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     status: {
       type: String,
       enum: ['Pending', 'Approved', 'Rejected'],

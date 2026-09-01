@@ -31,6 +31,8 @@ const propertySchema = new mongoose.Schema(
       default: 'PENDING',
     },
 
+    verificationReason: { type: String, trim: true, default: '' },
+
     amenities: { type: [String], default: [] },
 
     landlord: { type: String, trim: true },

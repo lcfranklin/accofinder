@@ -1,6 +1,6 @@
-export const socketMiddleware = (io) => {
+export const socketMiddleware = (ioOrGetter) => {
   return (req, res, next) => {
-    req.io = io;
+    req.io = typeof ioOrGetter === 'function' ? ioOrGetter() : ioOrGetter;
     next();
   };
 };

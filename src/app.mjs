@@ -18,6 +18,9 @@ import authRoutes from './routes/authRoutes.mjs';
 import uploadRoutes from './routes/uploadRoutes.mjs';
 import { notFound, errorHandler } from './middleware/errorMiddleware.mjs';
 
+import { getIO, initSocket } from './sockets/socketHandler.mjs';
+import { socketMiddleware } from './middleware/socketMiddleware.mjs';
+
 import roomRoutes from './routes/roomRoutes.mjs';
 import propertyRoutes from './routes/propertyRoutes.mjs';
 
@@ -154,3 +157,4 @@ app.use(errorHandler);
 
 export default app;
 export { connectDB };
+export { getIO, initSocket };

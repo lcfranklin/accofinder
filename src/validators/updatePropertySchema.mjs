@@ -20,6 +20,8 @@ export const updatePropertySchema = Joi.object({
     .valid('PENDING', 'VERIFIED', 'REJECTED', 'DRAFT')
     .optional(),
 
+  verificationReason: Joi.string().trim().max(1000).optional(),
+
   amenities: Joi.array().items(Joi.string().trim()).optional(),
   landlord: Joi.string().trim().optional(),
   landlordPhone: Joi.string().trim().optional(),

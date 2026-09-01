@@ -12,6 +12,7 @@ const toApplicationApi = (app) => {
     appliedDate: app.appliedDate,
     status: app.status,
     notes: app.notes ?? '',
+    reason: app.reason ?? '',
     firstName: u.firstName || '',
     lastName: u.surname || '',
     email: u.email || '',
@@ -130,7 +131,9 @@ export const rejectAgentApplication = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, 'Agent application not found');
     }
 
+    const { reason } = req.body;
     application.status = 'Rejected';
+    application.reason = (reason ?? '').trim();
     await application.save();
 
     const populated = await application.populate(

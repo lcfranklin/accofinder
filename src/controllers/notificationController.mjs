@@ -1,29 +1,41 @@
 import { Notification } from '../models/Notification.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import {
+  createNotification,
+  broadcastAnnouncement,
+} from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
 
-//  create a new notification
-export const createNotification = asyncHandler(async (req, res, next) => {
+const getCurrentUserId = (req) => req.user.id || req.user.sub || req.user._id;
+
+//  create a new single notification (system / internal)
+export const createNotificationHandler = asyncHandler(async (req, res, next) => {
   try {
-    const { userId, message, type } = req.validatedData || req.body;
+    const { recipientId, recipientRole, kind, title, message } =
+      req.validatedData || req.body;
+    const senderId = getCurrentUserId(req);
 
-    if (!userId || !message) {
-      return sendResponse(res, 400, false, 'userId and message are required');
+    if (!recipientId || !message) {
+      return sendResponse(
+        res,
+        400,
+        false,
+        'recipientId and message are required',
+      );
     }
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return sendResponse(res, 400, false, 'Invalid userId format');
+    if (!mongoose.Types.ObjectId.isValid(recipientId)) {
+      return sendResponse(res, 400, false, 'Invalid recipientId format');
     }
 
-    const notification = await Notification.create({
-      userId: new mongoose.Types.ObjectId(userId),
+    const notification = await createNotification({
+      recipientRole,
+      recipientId,
+      kind,
+      title,
       message,
-      type,
+      senderId,
     });
-
-    if (!notification) {
-      return sendResponse(res, 400, false, 'Failed to create notification');
-    }
 
     return sendResponse(
       res,
@@ -37,14 +49,63 @@ export const createNotification = asyncHandler(async (req, res, next) => {
   }
 });
 
+//  admin announcement broadcast to an audience (ALL|ADMIN|CLIENT|AGENT)
+export const announce = asyncHandler(async (req, res, next) => {
+  try {
+    const { audience, title, message } = req.validatedData || req.body;
+    const senderId = getCurrentUserId(req);
+
+    if (!message) {
+      return sendResponse(res, 400, false, 'message is required');
+    }
+
+    const notifications = await broadcastAnnouncement({
+      audience,
+      title,
+      message,
+      senderId,
+    });
+
+    return sendResponse(
+      res,
+      201,
+      true,
+      `Announcement sent to ${notifications.length} user(s)`,
+      { count: notifications.length },
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
+//  history of announcements (persisted across recipients, de-duplicated by title+time)
+export const getAnnouncementHistory = asyncHandler(async (req, res, next) => {
+  try {
+    const notices = await Notification.find({ announcement: true })
+      .populate('senderId', 'firstName surname email')
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Announcement history retrieved',
+      notices,
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
 //  get all notifications for the logged-in user
 export const getNotifications = asyncHandler(async (req, res, next) => {
   try {
-    const userId = req.user.id || req.user.sub || req.user._id;
+    const userId = getCurrentUserId(req);
 
-    const notifications = await Notification.find({ userId }).sort({
-      createdAt: -1,
-    });
+    const notifications = await Notification.find({ recipientId: userId }).sort(
+      { createdAt: -1 },
+    );
 
     return sendResponse(
       res,
@@ -61,10 +122,10 @@ export const getNotifications = asyncHandler(async (req, res, next) => {
 //  get unread notifications for the logged-in user
 export const getUnreadNotifications = asyncHandler(async (req, res, next) => {
   try {
-    const userId = req.user.id || req.user.sub || req.user._id;
+    const userId = getCurrentUserId(req);
 
     const notifications = await Notification.find({
-      userId,
+      recipientId: userId,
       isRead: false,
     }).sort({ createdAt: -1 });
 
@@ -86,10 +147,10 @@ export const getUnreadNotifications = asyncHandler(async (req, res, next) => {
 //  get unread notification count
 export const getNotificationCount = asyncHandler(async (req, res, next) => {
   try {
-    const userId = req.user.id || req.user.sub || req.user._id;
+    const userId = getCurrentUserId(req);
 
     const count = await Notification.countDocuments({
-      userId,
+      recipientId: userId,
       isRead: false,
     });
 
@@ -157,10 +218,10 @@ export const markNotificationAsRead = asyncHandler(async (req, res, next) => {
 export const markAllNotificationsAsRead = asyncHandler(
   async (req, res, next) => {
     try {
-      const userId = req.user.id || req.user.sub || req.user._id;
+      const userId = getCurrentUserId(req);
 
       await Notification.updateMany(
-        { userId, isRead: false },
+        { recipientId: userId, isRead: false },
         { $set: { isRead: true } },
       );
 
@@ -195,9 +256,9 @@ export const deleteNotification = asyncHandler(async (req, res, next) => {
 //  delete all notifications for logged-in user
 export const deleteAllNotifications = asyncHandler(async (req, res, next) => {
   try {
-    const userId = req.user.id || req.user.sub || req.user._id;
+    const userId = getCurrentUserId(req);
 
-    await Notification.deleteMany({ userId });
+    await Notification.deleteMany({ recipientId: userId });
 
     return sendResponse(
       res,

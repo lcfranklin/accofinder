@@ -81,6 +81,7 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       propertyType,
       physicalAddress,
       verificationStatus,
+      verificationReason,
       amenities,
       landlord,
       landlordPhone,
@@ -94,6 +95,14 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
     if (propertyType !== undefined) setUpdates.propertyType = propertyType;
     if (physicalAddress !== undefined) setUpdates.physicalAddress = physicalAddress;
     if (verificationStatus !== undefined) setUpdates.verificationStatus = verificationStatus;
+    // Clear a stale rejection reason whenever the property moves away from
+    // REJECTED (agent resubmits, admin re-verifies). Set it explicitly only
+    // when the admin rejects with a reason.
+    if (verificationStatus !== undefined && verificationStatus !== 'REJECTED') {
+      setUpdates.verificationReason = '';
+    } else if (verificationReason !== undefined) {
+      setUpdates.verificationReason = verificationReason;
+    }
     if (amenities !== undefined) setUpdates.amenities = amenities;
     if (landlord !== undefined) setUpdates.landlord = landlord;
     if (landlordPhone !== undefined) setUpdates.landlordPhone = landlordPhone;
