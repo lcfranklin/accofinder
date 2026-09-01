@@ -2,10 +2,12 @@ import { asyncHandler, sendResponse, withId } from '../utils/helpers.mjs';
 import { Booking } from '../models/Booking.mjs';
 import { Room } from '../models/Room.mjs';
 import { Payment } from '../models/Payment.mjs';
+import { Property } from '../models/Property.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
 import { v4 as uuidv4 } from 'uuid';
 import paychangu from '../utils/paychangu.mjs';
 import { PaymentStatus } from '../models/enums/PaymentStatus.mjs';
+import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
 
 const CURRENCY = process.env.PAYCHANGU_CURRENCY || 'MWK';
@@ -160,6 +162,53 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // Notify the payer (client) — and the property owner on success — so the
+  // right user sees the outcome instead of everyone.
+  if (foundPayment.bookingId) {
+    const bookingForNotify = await Booking.findById(foundPayment.bookingId);
+    const payingClientId = bookingForNotify?.clientId;
+    if (foundPayment.status === PaymentStatus.SUCCESS) {
+      if (payingClientId) {
+        await createNotification({
+          recipientRole: 'CLIENT',
+          recipientId: payingClientId,
+          kind: 'SYSTEM',
+          title: 'Payment successful',
+          message: 'Your payment was successful.',
+          senderId: payingClientId,
+          bookingId: foundPayment.bookingId,
+        });
+      }
+      const roomForOwner = bookingForNotify
+        ? await Room.findById(bookingForNotify.roomId)
+        : null;
+      const propOwner = roomForOwner?.propertyId
+        ? (await Property.findById(roomForOwner.propertyId))?.owner
+        : null;
+      if (propOwner) {
+        await createNotification({
+          recipientRole: 'AGENT',
+          recipientId: propOwner,
+          kind: 'SYSTEM',
+          title: 'Payment received',
+          message: 'A client completed payment for a booking on your property.',
+          senderId: payingClientId || undefined,
+          bookingId: foundPayment.bookingId,
+        });
+      }
+    } else if (foundPayment.status === PaymentStatus.FAILED && payingClientId) {
+      await createNotification({
+        recipientRole: 'CLIENT',
+        recipientId: payingClientId,
+        kind: 'SYSTEM',
+        title: 'Payment failed',
+        message: 'Your payment could not be completed. Please try again.',
+        senderId: payingClientId,
+        bookingId: foundPayment.bookingId,
+      });
+    }
+  }
+
   return sendResponse(res, 200, true, 'Payment verification status', {
     verification: verifyResponse?.data,
     payment: withId(foundPayment),
@@ -243,6 +292,19 @@ export const cancelPayment = asyncHandler(async (req, res, next) => {
       if (room) {
         room.available = true;
         await room.save();
+      }
+
+      // Notify the payer (client) their payment was cancelled/failed.
+      if (booking.clientId) {
+        await createNotification({
+          recipientRole: 'CLIENT',
+          recipientId: booking.clientId,
+          kind: 'SYSTEM',
+          title: 'Payment failed',
+          message: 'Your payment was cancelled and could not be completed.',
+          senderId: booking.clientId,
+          bookingId: payment.bookingId,
+        });
       }
     }
   }

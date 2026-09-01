@@ -1,6 +1,7 @@
 import { AgentApplication } from '../models/AgentApplication.mjs';
 import { User } from '../models/User.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
 
 const toApplicationApi = (app) => {
@@ -101,6 +102,18 @@ export const approveAgentApplication = asyncHandler(async (req, res, next) => {
       await User.findByIdAndUpdate(application.user, { role: 'AGENT' });
     }
 
+    // Notify only the applicant that they were approved (now an agent).
+    if (application.user) {
+      await createNotification({
+        recipientRole: 'AGENT',
+        recipientId: application.user,
+        kind: 'SYSTEM',
+        title: 'Application approved',
+        message: 'Congratulations! Your agent application was approved.',
+        senderId: req.user?.sub || req.user?.id || req.user?._id,
+      });
+    }
+
     const populated = await application.populate(
       'user',
       'firstName surname email phone',
@@ -135,6 +148,20 @@ export const rejectAgentApplication = asyncHandler(async (req, res, next) => {
     application.status = 'Rejected';
     application.reason = (reason ?? '').trim();
     await application.save();
+
+    // Notify only the applicant that they were rejected.
+    if (application.user) {
+      await createNotification({
+        recipientRole: 'CLIENT',
+        recipientId: application.user,
+        kind: 'SYSTEM',
+        title: 'Application rejected',
+        message:
+          'Your agent application was rejected.' +
+          (application.reason ? ` Reason: ${application.reason}` : ''),
+        senderId: req.user?.sub || req.user?.id || req.user?._id,
+      });
+    }
 
     const populated = await application.populate(
       'user',

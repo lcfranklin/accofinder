@@ -1,6 +1,7 @@
 import { Verification } from '../models/Verifications.mjs';
 import { Property } from '../models/Property.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
 
 // The mobile app serializes verification status as an int
@@ -118,6 +119,20 @@ export const approveOrRejectProperty = asyncHandler(async (req, res, next) => {
 
     property.verificationStatus = isApproved ? 'VERIFIED' : 'REJECTED';
     await property.save();
+
+    // Notify only the agent who owns/submitted this property.
+    if (property.owner) {
+      await createNotification({
+        recipientRole: 'AGENT',
+        recipientId: property.owner,
+        kind: 'SYSTEM',
+        title: isApproved ? 'Property approved' : 'Property rejected',
+        message: isApproved
+          ? 'Your property has been approved and is now live.'
+          : 'Your property was rejected. Check the reason and resubmit.',
+        senderId: req.user?.sub || req.user?.id || req.user?._id,
+      });
+    }
 
     const verifyingAgent =
       agentId ||

@@ -3,7 +3,16 @@ import { Room } from '../models/Room.mjs';
 import { Property } from '../models/Property.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
 import { asyncHandler, sendResponse, withId, withIdList } from '../utils/helpers.mjs';
+import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
+
+// Resolve the owner (agent) of the property a room belongs to, so booking and
+// payment controllers can notify the right user. Returns null if not found.
+const ownerOfRoom = async (room) => {
+  if (!room || !room.propertyId) return null;
+  const property = await Property.findById(room.propertyId);
+  return property ? property.owner : null;
+};
 
 //  get all bookings (Admin/Agent utility)
 //
@@ -135,6 +144,20 @@ export const createBooking = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Failed to create booking');
     }
 
+    // Notify the property owner (agent) that a client reserved their room.
+    const ownerId = await ownerOfRoom(room);
+    if (ownerId) {
+      await createNotification({
+        recipientRole: 'AGENT',
+        recipientId: ownerId,
+        kind: 'SYSTEM',
+        title: 'New booking',
+        message: `A client reserved a room on one of your properties (MK ${amount}).`,
+        senderId: clientId,
+        bookingId: booking._id,
+      });
+    }
+
     // Mark room as unavailable
     room.available = false;
     await room.save();
@@ -246,6 +269,31 @@ export const cancelBooking = asyncHandler(async (req, res, next) => {
       await room.save();
     }
 
+    // Notify the client that their booking was cancelled (and the owner).
+    if (booking.clientId) {
+      await createNotification({
+        recipientRole: 'CLIENT',
+        recipientId: booking.clientId,
+        kind: 'SYSTEM',
+        title: 'Booking cancelled',
+        message: 'Your booking has been cancelled.',
+        senderId: req.user?.sub || req.user?.id || req.user?._id,
+        bookingId: booking._id,
+      });
+    }
+    const ownerId = await ownerOfRoom(room);
+    if (ownerId) {
+      await createNotification({
+        recipientRole: 'AGENT',
+        recipientId: ownerId,
+        kind: 'SYSTEM',
+        title: 'Booking cancelled',
+        message: 'A booking on your property was cancelled.',
+        senderId: req.user?.sub || req.user?.id || req.user?._id,
+        bookingId: booking._id,
+      });
+    }
+
     return sendResponse(
       res,
       200,
@@ -279,6 +327,31 @@ export const confirmBooking = asyncHandler(async (req, res, next) => {
 
     booking.status = BookingStatus.CONFIRMED;
     await booking.save();
+
+    // Notify the client (and the property owner) that the booking is confirmed.
+    if (booking.clientId) {
+      await createNotification({
+        recipientRole: 'CLIENT',
+        recipientId: booking.clientId,
+        kind: 'SYSTEM',
+        title: 'Booking confirmed',
+        message: 'Your booking has been confirmed.',
+        senderId: booking.clientId,
+        bookingId: booking._id,
+      });
+    }
+    const ownerId = await ownerOfRoom(await Room.findById(booking.roomId));
+    if (ownerId) {
+      await createNotification({
+        recipientRole: 'AGENT',
+        recipientId: ownerId,
+        kind: 'SYSTEM',
+        title: 'Booking confirmed',
+        message: 'A booking on your property has been confirmed.',
+        senderId: booking.clientId,
+        bookingId: booking._id,
+      });
+    }
 
     return sendResponse(
       res,

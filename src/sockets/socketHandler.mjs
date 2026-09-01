@@ -16,6 +16,9 @@ export const initSocket = (server) => {
       methods:['GET','POST', 'PUT', 'PATCH', 'DELETE' ],
       // Credentials:
     },
+    // The mobile Qt client connects via QWebSocket only (it has no engine.io
+    // HTTP-polling transport), so restrict to the websocket transport.
+    transports: ['websocket'],
   });
 
   io.on('connection', (socket) => {
