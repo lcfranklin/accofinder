@@ -88,6 +88,7 @@ export const loginUser = (req, res, next) => {
         phone: user.phone,
         residentialAddress: user.residentialAddress,
         role: user.role,
+        commissionRate: typeof user.commissionRate === 'number' ? user.commissionRate : 0,
         accessToken,
         refreshToken,
       });
