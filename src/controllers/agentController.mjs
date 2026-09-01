@@ -141,3 +141,36 @@ export const setAgentActive = asyncHandler(async (req, res, next) => {
     next(error);
   }
 });
+
+// Set a commission rate for ALL agents at once. Runs as an admin-level,
+// platform-wide default so a single change applies to every agent.
+export const setAllAgentsCommission = asyncHandler(async (req, res, next) => {
+  try {
+    const { commissionRate } = req.body;
+
+    const rate = Number(commissionRate);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      return sendResponse(
+        res,
+        400,
+        false,
+        'commissionRate must be a number between 0 and 100',
+      );
+    }
+
+    const result = await User.updateMany(
+      { role: 'AGENT' },
+      { $set: { commissionRate: rate } },
+    );
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      `Commission rate set to ${rate}% for ${result.modifiedCount} agent(s)`,
+      { commissionRate: rate, modifiedCount: result.modifiedCount },
+    );
+  } catch (error) {
+    next(error);
+  }
+});

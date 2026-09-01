@@ -7,6 +7,13 @@ const agentRoutes = express.Router();
 
 agentRoutes.get('/', isAuthenticated, checkRole(['ADMIN']), agentController.getAgents);
 
+agentRoutes.patch(
+  '/commission',
+  isAuthenticated,
+  checkRole(['ADMIN']),
+  agentController.setAllAgentsCommission,
+);
+
 agentRoutes.get('/:agentId', isAuthenticated, checkRole(['ADMIN']), agentController.getAgentById);
 
 agentRoutes.patch(
@@ -51,6 +58,13 @@ agentApplicationRoutes.patch(
   isAuthenticated,
   checkRole(['ADMIN']),
   agentApplicationController.rejectAgentApplication,
+);
+
+agentApplicationRoutes.patch(
+  '/:id/notes',
+  isAuthenticated,
+  checkRole(['ADMIN']),
+  agentApplicationController.updateAgentApplicationNotes,
 );
 
 export default agentRoutes;

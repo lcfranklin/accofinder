@@ -11,6 +11,7 @@ const toApplicationApi = (app) => {
     preferredArea: app.preferredArea ?? '',
     appliedDate: app.appliedDate,
     status: app.status,
+    notes: app.notes ?? '',
     firstName: u.firstName || '',
     lastName: u.surname || '',
     email: u.email || '',
@@ -142,6 +143,39 @@ export const rejectAgentApplication = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Agent application rejected',
+      toApplicationApi(populated),
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
+export const updateAgentApplicationNotes = asyncHandler(async (req, res, next) => {
+  try {
+    const applicationId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(applicationId)) {
+      return sendResponse(res, 400, false, 'Invalid application ID format');
+    }
+
+    const application = await AgentApplication.findById(applicationId);
+    if (!application) {
+      return sendResponse(res, 404, false, 'Agent application not found');
+    }
+
+    application.notes = (req.body.notes || '').trim();
+    await application.save();
+
+    const populated = await application.populate(
+      'user',
+      'firstName surname email phone',
+    );
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Admin notes updated',
       toApplicationApi(populated),
     );
   } catch (error) {

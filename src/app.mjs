@@ -26,6 +26,8 @@ import houseBookingRoutes from './routes/bookingRoutes.mjs';
 import agentRoutes, { agentApplicationRoutes } from './routes/agentRoutes.mjs';
 import verificationRoutes from './routes/verificationRoutes.mjs';
 
+import dashboardRoutes from './routes/dashboardRoutes.mjs';
+
 dotenv.config();
 
 const app = express();
@@ -142,6 +144,8 @@ app.use('/api/property', verificationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);
+
+app.use('/api/dashboard', dashboardRoutes);
 
 app.use('/media', uploadRoutes);
 
