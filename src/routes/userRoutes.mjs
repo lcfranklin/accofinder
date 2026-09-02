@@ -23,4 +23,7 @@ userRoutes.patch('/:id/promote', isAuthenticated, checkRole(['ADMIN']), userCont
 // Activate / deactivate a user (admin only)
 userRoutes.patch('/:id/status', isAuthenticated, checkRole(['ADMIN']), userController.setUserStatus);
 
+// FCM push token registration
+userRoutes.patch('/me/fcm-token', isAuthenticated, userController.updateFcmToken);
+
 export default userRoutes;

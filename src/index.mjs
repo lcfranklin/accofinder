@@ -1,11 +1,13 @@
 import { createServer } from 'http';
 import app, { connectDB } from './app.mjs';
 import { initSocket } from './sockets/socketHandler.mjs';
+import { initFirebase } from './config/firebase.mjs';
 
 const PORT = process.env.PORT || 5000;
 const server = createServer(app);
 
 initSocket(server);
+initFirebase();
 
 const startServer = async () => {
   try {

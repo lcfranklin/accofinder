@@ -201,3 +201,25 @@ export const deleteUser = asyncHandler(async (req, res, next) => {
     next(error);
   }
 });
+
+//  update FCM push token
+export const updateFcmToken = asyncHandler(async (req, res, next) => {
+  try {
+    const userId = req.user.sub || req.user.id;
+    const { fcmToken } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: { fcmToken: fcmToken || null } },
+      { returnDocument: 'after' },
+    ).select('-password');
+
+    if (!updatedUser) {
+      return sendResponse(res, 404, false, 'User not found');
+    }
+
+    return sendResponse(res, 200, true, 'FCM token updated', { fcmToken: updatedUser.fcmToken });
+  } catch (error) {
+    next(error);
+  }
+});
