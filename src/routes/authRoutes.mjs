@@ -39,7 +39,7 @@ authRoutes.get(
   passport.authenticate('google', { scope: ['profile', 'email'] }),
 );
 authRoutes.get(
-  '/callback/google',
+  '/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
   googleCallback,
 );
