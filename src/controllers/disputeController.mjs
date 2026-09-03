@@ -2,7 +2,10 @@ import { Dispute } from '../models/Dispute.mjs';
 import { Booking } from '../models/Booking.mjs';
 import { Room } from '../models/Room.mjs';
 import { Property } from '../models/Property.mjs';
+import { User } from '../models/User.mjs';
+import { UserRole } from '../models/enums/UserRole.mjs';
 import { DisputeStatus } from '../models/enums/DisputeStatus.mjs';
+import { createNotification } from '../services/notificationService.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import mongoose from 'mongoose';
 
@@ -40,6 +43,35 @@ export const raiseDispute = asyncHandler(async (req, res, next) => {
 
     if (!dispute) {
       return sendResponse(res, 400, false, 'Bad request, dispute not created');
+    }
+
+    // Notify all admins about the new dispute
+    const admins = await User.find({ role: UserRole.ADMIN, isActive: true }).select('_id');
+    for (const admin of admins) {
+      await createNotification({
+        recipientRole: 'ADMIN',
+        recipientId: admin._id,
+        kind: 'SYSTEM',
+        title: 'New dispute raised',
+        message: `A dispute has been raised on booking ${bookingId}.`,
+        senderId: raisedBy,
+      });
+    }
+
+    // Notify the property agent (booking → room → property → owner)
+    const room = await Room.findById(booking.roomId);
+    if (room) {
+      const property = await Property.findById(room.propertyId);
+      if (property && property.owner) {
+        await createNotification({
+          recipientRole: 'AGENT',
+          recipientId: property.owner,
+          kind: 'SYSTEM',
+          title: 'Dispute raised on your property',
+          message: `A dispute has been raised on a booking for one of your properties.`,
+          senderId: raisedBy,
+        });
+      }
     }
 
     const populatedDispute = await Dispute.findById(dispute._id)
@@ -175,6 +207,19 @@ export const resolveDispute = asyncHandler(async (req, res, next) => {
 
     dispute.status = status;
     await dispute.save();
+
+    // Notify the client who raised the dispute
+    if (dispute.raisedBy) {
+      const statusLabel = status === DisputeStatus.RESOLVED ? 'resolved' : 'rejected';
+      await createNotification({
+        recipientRole: 'CLIENT',
+        recipientId: dispute.raisedBy,
+        kind: 'SYSTEM',
+        title: `Dispute ${statusLabel}`,
+        message: `Your dispute has been ${statusLabel}.`,
+        senderId: req.user?.sub || req.user?.id || req.user?._id,
+      });
+    }
 
     return sendResponse(
       res,
