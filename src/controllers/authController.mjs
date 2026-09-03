@@ -89,6 +89,9 @@ export const loginUser = (req, res, next) => {
         residentialAddress: user.residentialAddress,
         role: user.role,
         commissionRate: typeof user.commissionRate === 'number' ? user.commissionRate : 0,
+        bankName: user.bankName || '',
+        bankAccountNumber: user.bankAccountNumber || '',
+        paymentMethod: user.paymentMethod || 'Mobile money',
         accessToken,
         refreshToken,
       });
@@ -97,19 +100,44 @@ export const loginUser = (req, res, next) => {
 };
 
 /**
- * Handle Google OAuth callback
+ * Handle Google OAuth callback — generates JWT tokens and redirects
+ * to the native app via a deep link so the Qt client can store them.
  */
 export const googleCallback = (req, res) => {
-  // Successful authentication, redirect or send response
-  sendResponse(res, 200, true, 'Google login successful', {
-    _id: req.user._id,
-    firstName: req.user.firstName,
-    surname: req.user.surname,
-    email: req.user.email,
-    phone: req.user.phone,
-    residentialAddress: req.user.residentialAddress,
-    role: req.user.role,
+  if (!req.user) {
+    return sendResponse(res, 401, false, 'Google authentication failed');
+  }
+
+  const accessToken = generateAccessToken(req.user);
+  const refreshToken = generateRefreshToken(req.user);
+
+  const params = new URLSearchParams({
+    accessToken,
+    refreshToken,
+    userId: req.user._id.toString(),
+    firstName: req.user.firstName || '',
+    surname: req.user.surname || '',
+    email: req.user.email || '',
+    phone: req.user.phone || '',
+    role: req.user.role || 'CLIENT',
+    bankName: req.user.bankName || '',
+    bankAccountNumber: req.user.bankAccountNumber || '',
+    paymentMethod: req.user.paymentMethod || 'Mobile money',
   });
+
+  // Serve an HTML page that redirects to the native app via deep link.
+  // The app registers the accofinder:// scheme and intercepts this.
+  const redirectUrl = `accofinder://auth?${params.toString()}`;
+
+  res.send(`<!DOCTYPE html>
+<html><head><title>Signing in...</title></head>
+<body>
+  <p>Signing in with Google. Redirecting to app...</p>
+  <p>If the app does not open, <a href="${redirectUrl}">tap here</a>.</p>
+  <script>
+    setTimeout(function() { window.location.href = ${JSON.stringify(redirectUrl)}; }, 500);
+  </script>
+</body></html>`);
 };
 
 /**

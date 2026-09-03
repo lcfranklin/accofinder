@@ -66,6 +66,9 @@ export const updateMyProfile = asyncHandler(async (req, res, next) => {
       budgetMax,
       assignedArea,
       commissionRate,
+      bankName,
+      bankAccountNumber,
+      paymentMethod,
     } = req.validatedData || req.body;
 
     const updates = {
@@ -78,6 +81,9 @@ export const updateMyProfile = asyncHandler(async (req, res, next) => {
       budgetMax,
       assignedArea,
       commissionRate,
+      bankName,
+      bankAccountNumber,
+      paymentMethod,
     };
 
     // Clean out undefined keys from payload

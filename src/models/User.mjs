@@ -78,6 +78,21 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  bankName: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  bankAccountNumber: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  paymentMethod: {
+    type: String,
+    default: 'Mobile money',
+    trim: true,
+  },
 });
 
 userSchema.methods.matchPassword = async function (enteredPassword) {

@@ -12,7 +12,6 @@ const googleStrategy = new GoogleStrategy(
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
-      // Find or create user
       let user = await User.findOne({ googleId: profile.id });
 
       if (!user) {
@@ -20,16 +19,23 @@ const googleStrategy = new GoogleStrategy(
 
         if (user) {
           user.googleId = profile.id;
+          if (!user.isEmailVerified) {
+            user.isEmailVerified = true;
+          }
           await user.save();
         } else {
+          const email = profile.emails[0].value;
+          const googleNumber = `g${Date.now()}`;
+
           user = await User.create({
-            name: {
-              firstName: profile.name.givenName,
-              surname: profile.name.familyName,
-            },
-            email: profile.emails[0].value,
+            firstName: profile.name.givenName || 'Google',
+            surname: profile.name.familyName || 'User',
+            email,
+            phone: googleNumber,
+            residentialAddress: '',
             googleId: profile.id,
             role: 'CLIENT',
+            isEmailVerified: true,
           });
         }
       }

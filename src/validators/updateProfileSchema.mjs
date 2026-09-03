@@ -70,12 +70,35 @@ export const updateProfileSchema = Joi.object({
     .min(1)
     .messages({
       'object.min': 'Residential address must contain at least one field'
+    }),
+
+  bankName: Joi.string()
+    .trim()
+    .allow('')
+    .max(100)
+    .messages({
+      'string.max': 'Bank name cannot exceed 100 characters'
+    }),
+
+  bankAccountNumber: Joi.string()
+    .trim()
+    .allow('')
+    .max(50)
+    .messages({
+      'string.max': 'Account number cannot exceed 50 characters'
+    }),
+
+  paymentMethod: Joi.string()
+    .trim()
+    .valid('Mobile money', 'Bank transfer', 'Card', 'Cash')
+    .messages({
+      'any.only': 'Payment method must be one of: Mobile money, Bank transfer, Card, Cash'
     })
 
 })
   .min(1)
   .messages({
-    'object.min': 'At least one field (name, email, or residentialAddress) must be provided for update'
+    'object.min': 'At least one field (name, email, residentialAddress, bankName, bankAccountNumber, or paymentMethod) must be provided for update'
   })
   .options({ 
     abortEarly: false,
