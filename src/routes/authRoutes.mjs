@@ -9,7 +9,8 @@ import {
   checkEmail,
   logoutUser,
   requestOtp, 
-  verifyOtp 
+  verifyOtp,
+  resetPassword
 } from '../controllers/authController.mjs';
 import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
 import { registerUserSchema } from '../validators/registerUserSchema.mjs';
@@ -32,6 +33,7 @@ authRoutes.post('/refresh', refreshAccessToken);
 authRoutes.get('/me', isAuthenticated, getMe);
 authRoutes.post('/otp/request', requestOtp);
 authRoutes.post('/otp/verify', verifyOtp);
+authRoutes.post('/password/reset', resetPassword);
 
 // Google Auth
 authRoutes.get(

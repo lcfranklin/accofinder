@@ -322,8 +322,58 @@ export const verifyOtp = asyncHandler(async (req, res) => {
 
   otp.status = 'USED';
   await otp.save();
-  user.isEmailVerified = true;
-  await user.save();
+
+  // Only mark email as verified for registration/login purposes.
+  // For password_reset we just need the OTP to be valid.
+  if (purpose !== 'password_reset') {
+    user.isEmailVerified = true;
+    await user.save();
+  }
 
   sendResponse(res, 200, true, 'OTP verified successfully');
+});
+
+/**
+ * Reset user password after OTP verification
+ * POST /auth/password/reset
+ * Body: { email, newPassword }
+ */
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return sendResponse(res, 400, false, 'Email and new password are required');
+  }
+
+  if (newPassword.length < 6) {
+    return sendResponse(res, 400, false, 'Password must be at least 6 characters');
+  }
+
+  const user = await User.findOne({ email: email.toLowerCase().trim() });
+  if (!user) {
+    return sendResponse(res, 404, false, 'User not found');
+  }
+
+  // Check that a password_reset OTP was recently verified (status USED)
+  const usedOtp = await Otp.findOne({
+    user: user._id,
+    purpose: 'password_reset',
+    status: 'USED',
+  }).sort({ createdAt: -1 });
+
+  if (!usedOtp) {
+    return sendResponse(res, 403, false, 'Please verify your identity with an OTP first');
+  }
+
+  // Set the new password — the pre-save hook will hash it
+  user.password = newPassword;
+  await user.save();
+
+  // Invalidate any remaining OTPs for this purpose
+  await Otp.updateMany(
+    { user: user._id, purpose: 'password_reset' },
+    { $set: { status: 'EXPIRED' } },
+  );
+
+  sendResponse(res, 200, true, 'Password reset successfully');
 });
