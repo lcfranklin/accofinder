@@ -75,6 +75,10 @@ export const loginUser = (req, res, next) => {
       return sendResponse(res, 401, false, 'Email not verified');
     }
 
+    if (user.isActive === false) {
+      return sendResponse(res, 403, false, 'Account is deactivated. Please contact support.');
+    }
+
     req.login(user, (err) => {
       if (err) return next(err);
       const accessToken = generateAccessToken(user);
@@ -88,6 +92,7 @@ export const loginUser = (req, res, next) => {
         phone: user.phone,
         residentialAddress: user.residentialAddress,
         role: user.role,
+        isActive: user.isActive,
         commissionRate: typeof user.commissionRate === 'number' ? user.commissionRate : 0,
         bankName: user.bankName || '',
         bankAccountNumber: user.bankAccountNumber || '',
@@ -108,6 +113,10 @@ export const googleCallback = (req, res) => {
     return sendResponse(res, 401, false, 'Google authentication failed');
   }
 
+  if (req.user.isActive === false) {
+    return sendResponse(res, 403, false, 'Account is deactivated. Please contact support.');
+  }
+
   const accessToken = generateAccessToken(req.user);
   const refreshToken = generateRefreshToken(req.user);
 
@@ -120,6 +129,7 @@ export const googleCallback = (req, res) => {
     email: req.user.email || '',
     phone: req.user.phone || '',
     role: req.user.role || 'CLIENT',
+    isActive: String(req.user.isActive === false ? false : true),
     bankName: req.user.bankName || '',
     bankAccountNumber: req.user.bankAccountNumber || '',
     paymentMethod: req.user.paymentMethod || 'Mobile money',
