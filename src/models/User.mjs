@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     minlength: 10,
-    maxlength: 12,
+    maxlength: 16,
   },
   residentialAddress: {
     type: String,
