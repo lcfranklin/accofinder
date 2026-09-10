@@ -22,6 +22,11 @@ export const updatePropertySchema = Joi.object({
 
   verificationReason: Joi.string().trim().max(1000).optional(),
 
+  approvedBy: Joi.string().hex().length(24).optional().messages({
+    'string.length': 'approvedBy must be a valid 24-character hex ObjectId',
+  }),
+  approvedByName: Joi.string().trim().max(100).optional(),
+
   amenities: Joi.array().items(Joi.string().trim()).optional(),
   landlord: Joi.string().trim().optional(),
   landlordPhone: Joi.string().trim().optional(),

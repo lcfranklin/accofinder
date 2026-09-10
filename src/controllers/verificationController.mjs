@@ -117,6 +117,23 @@ export const approveOrRejectProperty = asyncHandler(async (req, res, next) => {
     const intStatus = Number(status);
     const isApproved = intStatus === 0;
 
+    // Record who approved/rejected so "approved by" survives a refresh.
+    const actorId =
+      agentId ||
+      (req.user && (req.user.sub || req.user.id || req.user._id));
+    if (isApproved && actorId) {
+      property.approvedBy = actorId;
+      const actorName =
+        [(req.user && req.user.firstName) || '', (req.user && (req.user.surname || req.user.lastName)) || '']
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+      if (actorName) property.approvedByName = actorName;
+    } else {
+      property.approvedBy = null;
+      property.approvedByName = '';
+    }
+
     property.verificationStatus = isApproved ? 'VERIFIED' : 'REJECTED';
     await property.save();
 

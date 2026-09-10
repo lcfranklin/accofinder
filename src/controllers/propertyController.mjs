@@ -82,6 +82,8 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       physicalAddress,
       verificationStatus,
       verificationReason,
+      approvedBy,
+      approvedByName,
       amenities,
       landlord,
       landlordPhone,
@@ -102,6 +104,31 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       setUpdates.verificationReason = '';
     } else if (verificationReason !== undefined) {
       setUpdates.verificationReason = verificationReason;
+    }
+    // Record who approved the listing when it becomes VERIFIED. Prefer the
+    // value supplied by the client (the approving user's id/name), falling back
+    // to the authenticated user so the approver is never blank.
+    if (approvedBy !== undefined && mongoose.Types.ObjectId.isValid(approvedBy)) {
+      setUpdates.approvedBy = new mongoose.Types.ObjectId(approvedBy);
+    }
+    if (approvedByName !== undefined) {
+      setUpdates.approvedByName = approvedByName.trim();
+    }
+    if (verificationStatus === 'VERIFIED') {
+      if (!setUpdates.approvedBy && req.user?._id) {
+        setUpdates.approvedBy = new mongoose.Types.ObjectId(req.user._id);
+      }
+      if (!setUpdates.approvedByName) {
+        const approverLast = req.user?.surname || req.user?.lastName || '';
+        setUpdates.approvedByName =
+          [req.user?.firstName, approverLast].filter(Boolean).join(' ').trim();
+      }
+    }
+    // Mirror the rejection-reason behaviour: when a property leaves VERIFIED
+    // (rejected, reverted to pending/draft/resubmitted) drop the stale approval.
+    if (verificationStatus !== undefined && verificationStatus !== 'VERIFIED') {
+      setUpdates.approvedBy = null;
+      setUpdates.approvedByName = '';
     }
     if (amenities !== undefined) setUpdates.amenities = amenities;
     if (landlord !== undefined) setUpdates.landlord = landlord;
@@ -188,7 +215,8 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
 
     const [properties, total] = await Promise.all([
       Property.find(filter)
-        .populate('owner', 'firstName lastName email phone')
+        .populate('owner', 'firstName surname email phone')
+        .populate('approvedBy', 'firstName surname email phone')
         .populate('media')
         .sort({ [sortBy]: sortDir })
         .skip(skip)
@@ -220,7 +248,8 @@ export const getPropertyById = asyncHandler(async (req, res, next) => {
 
     const [property, rooms] = await Promise.all([
       Property.findById(propertyId)
-        .populate('owner', 'firstName lastName email phone')
+        .populate('owner', 'firstName surname email phone')
+        .populate('approvedBy', 'firstName surname email phone')
         .populate('media'),
       Room.find({ propertyId }),
     ]);

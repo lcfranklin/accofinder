@@ -33,6 +33,17 @@ const propertySchema = new mongoose.Schema(
 
     verificationReason: { type: String, trim: true, default: '' },
 
+    // Admin user who approved this listing (VERIFIED). Stores a reference to
+    // the User plus a denormalized name so clients can show "approved by"
+    // without an extra users round-trip. Cleared when the listing moves away
+    // from VERIFIED.
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    approvedByName: { type: String, trim: true, default: '' },
+
     amenities: { type: [String], default: [] },
 
     landlord: { type: String, trim: true },
