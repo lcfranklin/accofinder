@@ -1,8 +1,11 @@
 import { Property } from '../models/Property.mjs';
 import { Room } from '../models/Room.mjs';
 import { Media } from '../models/media.mjs';
+import { User } from '../models/User.mjs';
+import { UserRole } from '../models/enums/UserRole.mjs';
 import { deleteS3ObjectsByUrls } from '../config/s3.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
 
 export const createProperty = asyncHandler(async (req, res, next) => {
@@ -54,6 +57,19 @@ const roomDocs = rooms.map((r) => ({
         available: r.available !== undefined ? r.available : true,
       }));
       createdRooms = await Room.insertMany(roomDocs, { ordered: true });
+    }
+
+    // Notify all admins that a new property has been submitted for review
+    const admins = await User.find({ role: UserRole.ADMIN, isActive: true }).select('_id');
+    for (const admin of admins) {
+      await createNotification({
+        recipientRole: 'ADMIN',
+        recipientId: admin._id,
+        kind: 'SYSTEM',
+        title: 'New property submitted',
+        message: `A new property "${title}" has been submitted and requires review.`,
+        senderId: owner,
+      });
     }
 
     return sendResponse(res, 201, true, 'Property created successfully', {
