@@ -18,13 +18,10 @@ export const isAuthenticated = (req, res, next) => {
 
   passport.authenticate('jwt', { session: false }, (err, user, info) => {
     if (err) {
-      console.error('JWT Auth Error:', err);
       return next(err);
     }
 
     if (user) {
-      console.log('--- Auth Check: JWT Authenticated ---');
-      console.log('User ID:', user._id);
       req.user = user;
       if (user.isActive === false) {
         return sendResponse(res, 403, false, 'Account is deactivated');
@@ -32,7 +29,6 @@ export const isAuthenticated = (req, res, next) => {
       return next();
     }
 
-    console.log('--- Auth Check: Not Authenticated ---');
     return sendResponse(res, 401, false, 'Not authenticated, please log in');
   })(req, res, next);
 };
