@@ -28,7 +28,7 @@ export const registerUserSchema = Joi.object({
     phone: Joi.string()
     .trim()
     .min(10)
-    .max(13)
+    .max(16)
     .required()
     .messages({
       'any.required': 'Phone number is required',
