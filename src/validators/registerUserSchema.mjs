@@ -47,7 +47,7 @@ export const registerUserSchema = Joi.object({
     'string.min': 'Confirm password must be at least 6 characters long',
   }),
 
-  residentialAddress: Joi.string().trim().min(2).max(100).required().messages({
+  residentialAddress: Joi.string().trim().min(2).max(100).messages({
     'any.required': 'Address is required',
     'string.empty': 'Address is required',
     'string.min': 'Address must be at least 2 characters long',
