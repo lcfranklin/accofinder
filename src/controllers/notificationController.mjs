@@ -104,11 +104,16 @@ export const getNotifications = asyncHandler(async (req, res, next) => {
     const userId = getCurrentUserId(req);
     const filter = { recipientId: userId };
 
-    // Optional role scope: ?role=AGENT filters to agent-addressed notifications
-    // only, hiding admin-targeted ones from the agent dashboard view.
+    // Optional role scope: ?role=AGENT returns agent-addressed notifications
+    // AND announcements (delivered to all). This lets an admin acting as an
+    // agent on the agent dashboard see announcements intended for everyone,
+    // without leaking admin-targeted notifications.
     const { role } = req.query;
     if (role && ['ADMIN', 'AGENT', 'CLIENT'].includes(role)) {
-      filter.recipientRole = role;
+      filter.$or = [
+        { recipientRole: role },
+        { announcement: true },
+      ];
     }
 
     const notifications = await Notification.find(filter).sort(
@@ -139,7 +144,10 @@ export const getUnreadNotifications = asyncHandler(async (req, res, next) => {
     // Optional role scope, same semantics as getNotifications.
     const { role } = req.query;
     if (role && ['ADMIN', 'AGENT', 'CLIENT'].includes(role)) {
-      filter.recipientRole = role;
+      filter.$or = [
+        { recipientRole: role },
+        { announcement: true },
+      ];
     }
 
     const notifications = await Notification.find(filter).sort({ createdAt: -1 });
@@ -171,7 +179,10 @@ export const getNotificationCount = asyncHandler(async (req, res, next) => {
     // Optional role scope, same semantics as getNotifications.
     const { role } = req.query;
     if (role && ['ADMIN', 'AGENT', 'CLIENT'].includes(role)) {
-      filter.recipientRole = role;
+      filter.$or = [
+        { recipientRole: role },
+        { announcement: true },
+      ];
     }
 
     const count = await Notification.countDocuments(filter);
