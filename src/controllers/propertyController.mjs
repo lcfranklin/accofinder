@@ -189,6 +189,7 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
       isActive,
       search,
       owner,
+      verificationStatus,
       page = 1,
       limit = 10,
       sortBy = 'createdAt',
@@ -196,18 +197,22 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
     } = req.validatedData || req.query;
 
     const filter = {};
+    if (verificationStatus) filter.verificationStatus = verificationStatus;
     if (owner) filter.owner = owner;
 
-    // Privacy: an authenticated, non-admin caller (agent/landlord) who does not
-    // pass an explicit "owner" only gets their own properties back, not the
-    // whole database. The endpoint stays public for clients browsing the
-    // catalogue, and admins keep seeing everything.
-    if (
-      !owner &&
-      req.user &&
-      String(req.user.role || '').toUpperCase() !== 'ADMIN'
-    ) {
-      filter.owner = req.user._id;
+    const callerRole = String(req.user?.role || '').toUpperCase();
+
+    // Privacy / catalogue rules:
+    // - Owners/managers (agent, landlord) who do not pass an explicit "owner"
+    //   only get their own properties back, not the whole database.
+    // - The public catalogue (anonymous users and CLIENTS) only ever reveals
+    //   VERIFIED listings, so unverified or pending listings cannot leak to
+    //   people browsing the app. Only admins see every status.
+    if (!owner && callerRole !== 'ADMIN') {
+      if (req.user && (callerRole === 'AGENT' || callerRole === 'LANDLORD'))
+        filter.owner = req.user._id;
+      filter.verificationStatus = 'VERIFIED';
+      if (isActive === undefined) filter.isActive = true;
     }
 
     if (propertyType) filter.propertyType = propertyType;

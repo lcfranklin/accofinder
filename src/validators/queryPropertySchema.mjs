@@ -6,6 +6,11 @@ export const queryPropertySchema = Joi.object({
     .valid(...Object.values(PropertyType))
     .uppercase()
     .optional(),
+  verificationStatus: Joi.string()
+    .valid('PENDING', 'VERIFIED', 'REJECTED', 'DRAFT')
+    .uppercase()
+    .optional(),
+  owner: Joi.string().trim().optional(),
   district: Joi.string().trim().optional(),
   village: Joi.string().trim().optional(),
   amenities: Joi.alternatives()

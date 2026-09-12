@@ -1,23 +1,25 @@
 
 /**
- * Middleware to validate request body against a Joi schema
- * 
+ * Middleware to validate a request part against a Joi schema
+ *
  * @param {Object} schema - Joi validation schema
+ * @param {string} [source='body'] - Which part of the request to validate:
+ *                                   'body' (req.body) or 'query' (req.query)
  * @returns {Function} Express middleware function
- * 
+ *
  * @example
- * router.post('/register', validateRequest(registerUserSchema), registerUser);
- * 
+ * router.get('/', validateRequest(queryPropertySchema, 'query'), getAllProperties);
+ *
  * @description
- * - Validates `req.body` using the provided Joi schema
+ * - Validates the chosen request part using the provided Joi schema
  * - Returns 400 with detailed error messages if validation fails
  * - Attaches validated data to `req.validatedData` if successful
  * - Uses `abortEarly: false` to collect all validation errors
  */
 
-export const validateRequest = (schema) => {
+export const validateRequest = (schema, source = 'body') => {
 return (req, res, next) => {
-    const { error, value } = schema.validate(req.body, { abortEarly: false });
+    const { error, value } = schema.validate(req[source] ?? {}, { abortEarly: false });
 
     if (error) {
       return res.status(400).json({
