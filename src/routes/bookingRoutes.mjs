@@ -23,7 +23,7 @@ bookingRoutes.post(
 bookingRoutes.get(
   '/',
   isAuthenticated,
-  checkRole(['LANDLORD', 'AGENT', 'ADMIN']),
+  checkRole(['LANDLORD', 'AGENT', 'ADMIN', 'CLIENT']),
   bookingController.getBookings,
 );
 
