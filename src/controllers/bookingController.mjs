@@ -30,15 +30,22 @@ export const getBookings = asyncHandler(async (req, res, next) => {
     const role = String(req.user?.role || '').toUpperCase();
     let filter = {};
 
-    if (role !== 'ADMIN') {
-      const ownedProps = await Property.find({ owner: req.user._id }).select(
-        '_id',
-      );
-      const ownedPropIds = ownedProps.map((p) => p._id);
+    if (role === 'ADMIN') {
+    } else if (role === 'CLIENT') {
+      filter.clientId = req.user._id;
+    } else {
+      const ownedProps = await Property.find({
+        owner: req.user._id,
+      }).select('_id');
+
+      const ownedPropIds = ownedProps.map((property) => property._id);
+
       const ownedRooms = await Room.find({
         propertyId: { $in: ownedPropIds },
       }).select('_id');
-      const ownedRoomIds = ownedRooms.map((r) => r._id);
+
+      const ownedRoomIds = ownedRooms.map((room) => room._id);
+
       if (ownedRoomIds.length === 0) {
         return sendResponse(
           res,
@@ -48,24 +55,20 @@ export const getBookings = asyncHandler(async (req, res, next) => {
           [],
         );
       }
-      filter.roomId = { $in: ownedRoomIds };
-    }
 
-    if (role === 'CLIENT') {
-      filter.clientId = req.user._id;
+      filter.roomId = { $in: ownedRoomIds };
     }
 
     const bookings = await Booking.find(filter)
       .populate('clientId', 'firstName lastName email phone')
       .populate({
         path: 'roomId',
-        populate: { path: 'propertyId', select: 'title location price' },
+        populate: {
+          path: 'propertyId',
+          select: 'title location price',
+        },
       })
       .sort({ createdAt: -1 });
-
-    if (!bookings) {
-      return sendResponse(res, 400, false, 'Failed to retrieve bookings');
-    }
 
     return sendResponse(
       res,
