@@ -84,7 +84,9 @@ const toPaymentsList = async () => {
       amount: p.amount || 0,
       status: p.status,
       method: p.method || '',
-      date: p.paidAt ? p.paidAt.toISOString().slice(0, 10) : p.createdAt.toISOString().slice(0, 10),
+      date: p.paidAt
+        ? p.paidAt.toISOString().slice(0, 10)
+        : p.createdAt.toISOString().slice(0, 10),
       booking: p.bookingId ? String(p.bookingId._id || p.bookingId) : '',
       kind: 'Payment',
       user: '',
@@ -96,13 +98,19 @@ const toPaymentsList = async () => {
 
 const toCommissionsList = async () => {
   const [agents, bookings] = await Promise.all([
-    User.find({ role: UserRole.AGENT }).select('firstName surname commissionRate assignedArea'),
+    User.find({ role: UserRole.AGENT }).select(
+      'firstName surname commissionRate assignedArea',
+    ),
     Booking.find({ status: { $ne: 'Cancelled' } }).select('commissionAmount'),
   ]);
 
   const commissions = agents.map((agent) => {
-    const rate = typeof agent.commissionRate === 'number' ? agent.commissionRate : 0;
-    const amount = bookings.reduce((sum, b) => sum + (b.commissionAmount || 0), 0);
+    const rate =
+      typeof agent.commissionRate === 'number' ? agent.commissionRate : 0;
+    const amount = bookings.reduce(
+      (sum, b) => sum + (b.commissionAmount || 0),
+      0,
+    );
     return {
       agent: `${agent.firstName || ''} ${agent.surname || ''}`.trim(),
       amount,
@@ -122,7 +130,10 @@ const toCommissionsList = async () => {
 };
 
 const toPayoutsList = async () => {
-  const payments = await Payment.find({ status: 'Success', payoutStatus: 'Pending' })
+  const payments = await Payment.find({
+    status: 'Success',
+    payoutStatus: 'Pending',
+  })
     .populate('bookingId', 'amount')
     .sort({ paidAt: -1 })
     .limit(100);
