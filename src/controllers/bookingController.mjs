@@ -2,7 +2,12 @@ import { Booking } from '../models/Booking.mjs';
 import { Room } from '../models/Room.mjs';
 import { Property } from '../models/Property.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
-import { asyncHandler, sendResponse, withId, withIdList } from '../utils/helpers.mjs';
+import {
+  asyncHandler,
+  sendResponse,
+  withId,
+  withIdList,
+} from '../utils/helpers.mjs';
 import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
 
@@ -26,16 +31,28 @@ export const getBookings = asyncHandler(async (req, res, next) => {
     let filter = {};
 
     if (role !== 'ADMIN') {
-      const ownedProps = await Property.find({ owner: req.user._id }).select('_id');
+      const ownedProps = await Property.find({ owner: req.user._id }).select(
+        '_id',
+      );
       const ownedPropIds = ownedProps.map((p) => p._id);
       const ownedRooms = await Room.find({
         propertyId: { $in: ownedPropIds },
       }).select('_id');
       const ownedRoomIds = ownedRooms.map((r) => r._id);
       if (ownedRoomIds.length === 0) {
-        return sendResponse(res, 200, true, 'Bookings retrieved successfully', []);
+        return sendResponse(
+          res,
+          200,
+          true,
+          'Bookings retrieved successfully',
+          [],
+        );
       }
       filter.roomId = { $in: ownedRoomIds };
+    }
+
+    if (role === 'CLIENT') {
+      filter.clientId = req.user._id;
     }
 
     const bookings = await Booking.find(filter)
