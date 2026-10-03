@@ -1,8 +1,12 @@
 import { Property } from '../models/Property.mjs';
 import { Room } from '../models/Room.mjs';
 import { Media } from '../models/media.mjs';
+import { Booking } from '../models/Booking.mjs';
+import { Review } from '../models/Review.mjs';
+import { Verification } from '../models/Verifications.mjs';
 import { User } from '../models/User.mjs';
 import { UserRole } from '../models/enums/UserRole.mjs';
+import { BookingStatus } from '../models/enums/BookingStatus.mjs';
 import { deleteS3ObjectsByUrls } from '../config/s3.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import { createNotification } from '../services/notificationService.mjs';
@@ -296,14 +300,62 @@ export const deleteProperty = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Invalid property ID');
     }
 
+    // Rooms have to be resolved up front: bookings reference rooms rather than
+    // properties, so the guard below needs their ids before the cascade runs.
+    const rooms = await Room.find({ propertyId }).select('_id');
+    const roomIds = rooms.map((room) => room._id);
+
+    // Deleting a property that still has occupied rooms would orphan live
+    // bookings against rooms that no longer exist. Only CANCELLED and EXPIRED
+    // release the room; holds, in-flight payments, retryable failures and
+    // confirmed bookings all still occupy it. An unrecognised future status
+    // blocks by default, which is the safe direction for a guard.
+    const activeBookingFilter = {
+      roomId: { $in: roomIds },
+      status: { $nin: [BookingStatus.CANCELLED, BookingStatus.EXPIRED] },
+    };
+    const activeBookings = roomIds.length
+      ? await Booking.countDocuments(activeBookingFilter)
+      : 0;
+
+    // force=true is the explicit override the admin confirmation dialog sends
+    // after it has shown the warning below.
+    const force = req.query.force === 'true';
+
+    if (activeBookings > 0 && !force) {
+      return sendResponse(
+        res,
+        409,
+        false,
+        `This property still has ${activeBookings} active booking${activeBookings === 1 ? '' : 's'}. Deleting it now would leave those bookings without a room.`,
+        null,
+        { activeBookings }
+      );
+    }
+
     const deletedProperty = await Property.findByIdAndDelete(propertyId);
 
     if (!deletedProperty) {
       return sendResponse(res, 404, false, 'Failed to delete property or property not found');
     }
 
+    // Forced delete: close the outstanding holds instead of leaving bookings
+    // pointing at deleted rooms. The admin dialog states this before confirming.
+    if (activeBookings > 0) {
+      await Booking.updateMany(activeBookingFilter, {
+        $set: { status: BookingStatus.CANCELLED },
+      });
+    }
+
     // Remove related rooms.
     await Room.deleteMany({ propertyId });
+
+    // Reviews and verification records are keyed directly on propertyId, so
+    // they would otherwise outlive the property as dangling rows - a deleted
+    // listing still showing its rating history and approval audit trail.
+    // Nothing references them in turn, so they can go unconditionally.
+    await Review.deleteMany({ propertyId });
+    await Verification.deleteMany({ propertyId });
 
     // Remove related media records AND their actual files from S3 so images do
     // not leak as orphaned objects in the bucket.
