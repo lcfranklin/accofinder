@@ -52,7 +52,7 @@ class PayChanguSDK {
   }
 
   async supportedMomoOperators() {
-    return this._fetch('/mobile-money/operators', { method: 'GET' });
+    return this._fetch('/mobile-money', { method: 'GET' });
   }
 
   async chargeMobileMoney(body) {
