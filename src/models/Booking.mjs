@@ -34,6 +34,9 @@ const bookingSchema = new mongoose.Schema(
     hardExpiresAt: { type: Date, default: null },
     paymentInitiatedAt: { type: Date, default: null },
     expiredAt: { type: Date, default: null },
+
+    // Set when a confirmed booking is released back to the market via a refund.
+    refundedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

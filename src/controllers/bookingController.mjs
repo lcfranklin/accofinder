@@ -553,6 +553,111 @@ export const confirmBooking = asyncHandler(async (req, res, next) => {
   }
 });
 
+//  release a confirmed booking back to the market (refund / re-list)
+//
+//  cancelBooking deliberately leaves a CONFIRMED room booked, because a client
+//  walking away must not silently hand a paid-for room to someone else. When the
+//  money is actually refunded, though, the room is free again - and only an
+//  admin or the property owner may make that call. This endpoint is the
+//  counterpart that sets the booking to REFUNDED and puts the room back on the
+//  market.
+export const releaseBooking = asyncHandler(async (req, res, next) => {
+  try {
+    const bookingId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return sendResponse(res, 400, false, 'Invalid booking ID format');
+    }
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return sendResponse(
+        res,
+        404,
+        false,
+        `Booking with id ${bookingId} not found`,
+      );
+    }
+
+    if (booking.status === BookingStatus.REFUNDED) {
+      return sendResponse(res, 400, false, 'Booking is already refunded');
+    }
+
+    if (booking.status !== BookingStatus.CONFIRMED) {
+      return sendResponse(
+        res,
+        400,
+        false,
+        `Only a confirmed booking can be released (status: ${booking.status}).`,
+      );
+    }
+
+    const room = await Room.findById(booking.roomId);
+    if (!room) {
+      return sendResponse(
+        res,
+        404,
+        false,
+        'The room for this booking no longer exists.',
+      );
+    }
+
+    // Authorisation: an admin can always release; an agent/landlord only for a
+    // property they own.
+    const role = String(req.user?.role || '').toUpperCase();
+    if (role !== 'ADMIN') {
+      const ownerId = await ownerOfRoom(room);
+      const requesterId = req.user?.id || req.user?.sub || req.user?._id;
+      if (!ownerId || String(ownerId) !== String(requesterId)) {
+        return sendResponse(
+          res,
+          403,
+          false,
+          'Only an admin or the property owner can release this booking.',
+        );
+      }
+    }
+
+    booking.status = BookingStatus.REFUNDED;
+    booking.refundedAt = new Date();
+    // The hold fields were historical once confirmed; make sure nothing here is
+    // mistaken for a live hold.
+    booking.expiresAt = null;
+    await booking.save();
+
+    // Return the room to the market and clear any leftover hold so it is
+    // immediately bookable again.
+    const reopened = await Room.updateOne(
+      { _id: booking.roomId },
+      { $set: { available: true, holdRef: null, holdExpiresAt: null } },
+    );
+
+    if (booking.clientId) {
+      await createNotification({
+        recipientRole: 'CLIENT',
+        recipientId: booking.clientId,
+        kind: 'SYSTEM',
+        title: 'Booking refunded',
+        message:
+          'Your booking has been refunded and released. The room is available again.',
+        senderId: req.user?.sub || req.user?.id || req.user?._id,
+        bookingId: booking._id,
+      });
+    }
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Booking released. The room is available again.',
+      withId(booking),
+      { roomReleased: reopened.modifiedCount === 1 },
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
 //  delete a booking
 export const deleteBooking = asyncHandler(async (req, res, next) => {
   try {

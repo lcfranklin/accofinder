@@ -20,6 +20,11 @@ export const BookingStatus = Object.freeze({
   // Payment verified with the provider. The room is permanently booked.
   CONFIRMED: 'Confirmed',
 
+  // A confirmed booking was refunded and deliberately released. The room goes
+  // back on the market. This is the terminal state reached via the release
+  // endpoint (admin / property owner action), never by the client.
+  REFUNDED: 'Refunded',
+
   // Hold timed out with no successful payment. Room released.
   EXPIRED: 'Expired',
 

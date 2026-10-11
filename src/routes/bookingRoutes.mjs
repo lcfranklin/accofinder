@@ -38,6 +38,14 @@ bookingRoutes.patch(
   bookingController.cancelBooking,
 );
 
+// Release a confirmed booking back to the market after a refund
+bookingRoutes.patch(
+  '/:id/release',
+  isAuthenticated,
+  checkRole(['LANDLORD', 'AGENT', 'ADMIN']),
+  bookingController.releaseBooking,
+);
+
 // Confirm a booking
 bookingRoutes.patch(
   '/:id/confirm',
