@@ -14,6 +14,20 @@ propertyRoutes.get(
   propertyController.getAllProperties,
 );
 
+// Admin-only listing. The public `GET /` above is intentionally unauthenticated
+// (anonymous browsing must work), which means `req.user` is never set there and
+// the admin branch in the controller can never run - so admins were only ever
+// shown VERIFIED listings. This route authenticates first, so an admin sees
+// every status (and the `verificationStatus` filter is honoured). It MUST be
+// declared before `/:id`, or "admin" would be captured as an id.
+propertyRoutes.get(
+  '/admin',
+  isAuthenticated,
+  checkRole(['ADMIN']),
+  validateRequest(queryPropertySchema, 'query'),
+  propertyController.getAllProperties,
+);
+
 propertyRoutes.get('/:id', propertyController.getPropertyById);
 
 propertyRoutes.post(
