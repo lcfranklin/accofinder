@@ -31,6 +31,8 @@ import verificationRoutes from './routes/verificationRoutes.mjs';
 
 import dashboardRoutes from './routes/dashboardRoutes.mjs';
 
+import settingRoutes from './routes/settingRoutes.mjs';
+
 dotenv.config();
 
 const app = express();
@@ -149,6 +151,8 @@ app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);
 
 app.use('/api/dashboard', dashboardRoutes);
+
+app.use('/api/settings', settingRoutes);
 
 app.use('/media', uploadRoutes);
 
