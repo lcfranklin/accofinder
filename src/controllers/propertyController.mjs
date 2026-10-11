@@ -195,7 +195,7 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
       owner,
       verificationStatus,
       page = 1,
-      limit = 10,
+      limit = 50,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = req.validatedData || req.query;
