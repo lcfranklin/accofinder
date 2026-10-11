@@ -167,6 +167,10 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Invalid or empty update fields');
     }
 
+    // Snapshot the current state so a decision notification is only sent when
+    // the verification status actually changes (not on every unrelated edit).
+    const before = await Property.findById(propertyId).select('owner verificationStatus');
+
     const updatedProperty = await Property.findByIdAndUpdate(
       propertyId,
       updateOp,
@@ -175,6 +179,33 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
 
     if (!updatedProperty) {
       return sendResponse(res, 404, false, 'Property not found or not updated');
+    }
+
+    // This is the path the mobile admin app uses (PUT /house-listing/:id). It
+    // used to persist the decision without telling the owner, so a rejected
+    // agent never saw a notification. Mirror the approval endpoint here.
+    if (
+      before &&
+      verificationStatus !== undefined &&
+      verificationStatus !== before.verificationStatus &&
+      (verificationStatus === 'REJECTED' || verificationStatus === 'VERIFIED')
+    ) {
+      const recipientId = updatedProperty.owner || before.owner;
+      if (recipientId) {
+        const reason = (setUpdates.verificationReason || '').trim();
+        await createNotification({
+          recipientRole: 'AGENT',
+          recipientId,
+          kind: 'SYSTEM',
+          title: verificationStatus === 'REJECTED' ? 'Property rejected' : 'Property approved',
+          message: verificationStatus === 'REJECTED'
+            ? (reason
+                ? `Your property was rejected. Reason: ${reason}`
+                : 'Your property was rejected. Please review it and resubmit.')
+            : 'Your property has been approved and is now live.',
+          senderId: req.user?._id,
+        });
+      }
     }
 
     return sendResponse(res, 200, true, 'Property updated successfully', updatedProperty);
