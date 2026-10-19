@@ -12,10 +12,10 @@ const roomSchema = new mongoose.Schema(
       required: [true, 'Room type is required'],
       trim: true,
     },
-    price: {
+    /* price: {
       type: Number,
       default: 0,
-    },
+    },*/
     available: {
       type: Boolean,
       default: true,

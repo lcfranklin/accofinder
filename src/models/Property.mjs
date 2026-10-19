@@ -13,8 +13,14 @@ const propertySchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
-
-    price: { type: Number, default: 0 },
+    bookingFee: {
+      type: Number,
+      default: 0,
+    },
+    rentalFee: {
+      type: Number,
+      default: 0,
+    },
 
     propertyType: {
       type: String,
@@ -55,6 +61,10 @@ const propertySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+    },
+    available: {
+      type: Boolean,
+      default: true,
     },
 
     media: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Media' }],
