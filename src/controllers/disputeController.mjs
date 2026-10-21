@@ -9,6 +9,15 @@ import { createNotification } from '../services/notificationService.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import mongoose from 'mongoose';
 
+const propertyForBooking = async (booking) => {
+  if (booking.bookableItemType === 'Property') {
+    return Property.findById(booking.bookableItemId);
+  }
+
+  const room = await Room.findById(booking.bookableItemId);
+  return room?.propertyId ? Property.findById(room.propertyId) : null;
+};
+
 //  raise a new dispute
 export const raiseDispute = asyncHandler(async (req, res, next) => {
   try {
@@ -58,20 +67,17 @@ export const raiseDispute = asyncHandler(async (req, res, next) => {
       });
     }
 
-    // Notify the property agent (booking → room → property → owner)
-    const room = await Room.findById(booking.roomId);
-    if (room) {
-      const property = await Property.findById(room.propertyId);
-      if (property && property.owner) {
-        await createNotification({
-          recipientRole: 'AGENT',
-          recipientId: property.owner,
-          kind: 'SYSTEM',
-          title: 'Dispute raised on your property',
-          message: `A dispute has been raised on a booking for one of your properties.`,
-          senderId: raisedBy,
-        });
-      }
+    // Notify the property agent for either a property or room booking.
+    const property = await propertyForBooking(booking);
+    if (property?.owner) {
+      await createNotification({
+        recipientRole: 'AGENT',
+        recipientId: property.owner,
+        kind: 'SYSTEM',
+        title: 'Dispute raised on your property',
+        message: 'A dispute has been raised on a booking for one of your properties.',
+        senderId: raisedBy,
+      });
     }
 
     const populatedDispute = await Dispute.findById(dispute._id)
@@ -93,8 +99,7 @@ export const raiseDispute = asyncHandler(async (req, res, next) => {
 //  get all disputes (Admin / Support utility)
 //
 //  Scoping: an ADMIN sees every dispute, while an AGENT only sees disputes
-//  raised on bookings for rooms of the agent's own properties (dispute ->
-//  booking -> room -> property -> owner).
+//  raised on bookings for rooms or whole properties the agent owns.
 export const getAllDisputes = asyncHandler(async (req, res, next) => {
   try {
     const role = String(req.user?.role || '').toUpperCase();
@@ -107,11 +112,20 @@ export const getAllDisputes = asyncHandler(async (req, res, next) => {
         propertyId: { $in: ownedPropIds },
       }).select('_id');
       const ownedRoomIds = ownedRooms.map((r) => r._id);
-      if (ownedRoomIds.length === 0) {
+      if (ownedRoomIds.length === 0 && ownedPropIds.length === 0) {
         return sendResponse(res, 200, true, 'Disputes retrieved successfully', []);
       }
       const ownedBookings = await Booking.find({
-        roomId: { $in: ownedRoomIds },
+        $or: [
+          {
+            bookableItemType: 'Room',
+            bookableItemId: { $in: ownedRoomIds },
+          },
+          {
+            bookableItemType: 'Property',
+            bookableItemId: { $in: ownedPropIds },
+          },
+        ],
       }).select('_id');
       const ownedBookingIds = ownedBookings.map((b) => b._id);
       if (ownedBookingIds.length === 0) {
@@ -123,7 +137,7 @@ export const getAllDisputes = asyncHandler(async (req, res, next) => {
     const disputes = await Dispute.find(filter)
       .populate({
         path: 'bookingId',
-        populate: { path: 'roomId' },
+        populate: { path: 'bookableItemId' },
       })
       .populate('raisedBy', 'firstName lastName email phone')
       .sort({ createdAt: -1 });
@@ -156,7 +170,7 @@ export const getDisputeById = asyncHandler(async (req, res, next) => {
     const dispute = await Dispute.findById(disputeId)
       .populate({
         path: 'bookingId',
-        populate: { path: 'roomId' },
+        populate: { path: 'bookableItemId' },
       })
       .populate('raisedBy', 'firstName lastName email phone');
 

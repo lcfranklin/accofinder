@@ -233,7 +233,7 @@ Verification `status` uses the app's int encoding on the wire: `0` = Approved, `
 | GET | `/verify/:chargeId` | Verify payment status | Yes | All |
 | GET | `/details/:chargeId` | Get charge details from PayChangu | Yes | All |
 | GET | `/user/:userId` | Get latest payment for a user (or a payment by its id) | Yes | All |
-| POST | `/cancel` | Cancel a payment (booking returns to `Pending`, room released) | Yes | All |
+| POST | `/cancel` | Cancel a payment (booking returns to `Pending`, bookable item released) | Yes | All |
 
 ### Media/Uploads (`/media`)
 
@@ -250,13 +250,18 @@ Verification `status` uses the app's int encoding on the wire: `0` = Approved, `
 
 ```json
 {
-  "roomId": "<24-hex room id>",      // required
-  "bookingDate": "2026-09-01T10:00:00.000Z", // optional, defaults to now
-  "amount": 120000,                   // required, > 0
-  "commissionAmount": 12000,          // optional, default 0
-  "clientId": "<24-hex user id>"      // optional, falls back to authenticated user
+  "bookableItemId": "<24-hex room or whole-property id>",
+  "bookingDate": "2026-09-01T10:00:00.000Z",
+  "amount": 120000,
+  "commissionAmount": 12000
 }
 ```
+
+`bookableItemId` is required; `bookingDate` and `commissionAmount` are optional.
+The API determines the item type from its ID: a `WHOLE` property can be booked
+directly, while hostel-style properties must be booked through one of their
+rooms. The property's initial `available` value is true only for `WHOLE`
+properties; booking and cancellation continue to update availability.
 
 ### Create a room
 

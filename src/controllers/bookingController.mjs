@@ -2,16 +2,48 @@ import { Booking } from '../models/Booking.mjs';
 import { Room } from '../models/Room.mjs';
 import { Property } from '../models/Property.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
+import { PropertyType } from '../models/enums/PropertyType.mjs';
 import { asyncHandler, sendResponse, withId, withIdList } from '../utils/helpers.mjs';
 import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
 
-// Resolve the owner (agent) of the property a room belongs to, so booking and
-// payment controllers can notify the right user. Returns null if not found.
-const ownerOfRoom = async (room) => {
-  if (!room || !room.propertyId) return null;
-  const property = await Property.findById(room.propertyId);
-  return property ? property.owner : null;
+// Resolve the owner (agent) for a property/room item. For room bookings, the
+// room has a propertyId. For property bookings, the item itself is the property.
+const ownerOfBookableItem = async (item) => {
+  if (!item) return null;
+  if (item.owner) return item.owner;
+  if (item.propertyId) {
+    const property = await Property.findById(item.propertyId);
+    return property ? property.owner : null;
+  }
+  return null;
+};
+
+const resolveBookableItem = async (bookableItemId) => {
+  if (!bookableItemId || !mongoose.Types.ObjectId.isValid(bookableItemId)) {
+    return null;
+  }
+
+  const property = await Property.findById(bookableItemId);
+  if (property?.propertyType === PropertyType.WHOLE) {
+    return { type: 'Property', item: property };
+  }
+
+  const room = await Room.findById(bookableItemId);
+  if (room) {
+    return { type: 'Room', item: room };
+  }
+
+  return property ? { type: 'Property', item: property } : null;
+};
+
+const normalizeBookableItemType = (type) => {
+  if (!type) return null;
+  const value = String(type).trim();
+  if (!value) return null;
+  if (value.toLowerCase() === 'property') return 'Property';
+  if (value.toLowerCase() === 'room') return 'Room';
+  return value;
 };
 
 //  get all bookings (Admin/Agent utility)
@@ -32,18 +64,25 @@ export const getBookings = asyncHandler(async (req, res, next) => {
         propertyId: { $in: ownedPropIds },
       }).select('_id');
       const ownedRoomIds = ownedRooms.map((r) => r._id);
-      if (ownedRoomIds.length === 0) {
+      if (ownedRoomIds.length === 0 && ownedPropIds.length === 0) {
         return sendResponse(res, 200, true, 'Bookings retrieved successfully', []);
       }
-      filter.roomId = { $in: ownedRoomIds };
+
+      filter.$or = [
+        {
+          bookableItemType: 'Room',
+          bookableItemId: { $in: ownedRoomIds },
+        },
+        {
+          bookableItemType: 'Property',
+          bookableItemId: { $in: ownedPropIds },
+        },
+      ];
     }
 
     const bookings = await Booking.find(filter)
       .populate('clientId', 'firstName lastName email phone')
-      .populate({
-        path: 'roomId',
-        populate: { path: 'propertyId', select: 'title location price' },
-      })
+      .populate('bookableItemId')
       .sort({ createdAt: -1 });
 
     if (!bookings) {
@@ -73,13 +112,7 @@ export const getBookingById = asyncHandler(async (req, res, next) => {
 
     const booking = await Booking.findById(bookingId)
       .populate('clientId', 'firstName lastName email phone')
-      .populate({
-        path: 'roomId',
-        populate: {
-          path: 'propertyId',
-          select: 'title location price agentId landlordId',
-        },
-      });
+      .populate('bookableItemId');
 
     if (!booking) {
       return sendResponse(
@@ -100,29 +133,55 @@ export const getBookingById = asyncHandler(async (req, res, next) => {
 export const createBooking = asyncHandler(async (req, res, next) => {
   try {
     const clientId = req.user.id || req.user.sub || req.user._id;
-    const { roomId, bookingDate, amount, commissionAmount } =
-      req.validatedData || req.body;
+    const {
+      bookableItemId,
+      bookingDate,
+      amount,
+      commissionAmount,
+    } = req.validatedData || req.body;
 
-    if (!roomId || !amount) {
+    if (!bookableItemId || !amount) {
       return sendResponse(
         res,
         400,
         false,
-        'Missing required fields: roomId, amount',
+        'Missing required fields: bookableItemId, amount',
       );
     }
 
-    if (!mongoose.Types.ObjectId.isValid(roomId)) {
-      return sendResponse(res, 400, false, 'Invalid room ID format');
+    if (!mongoose.Types.ObjectId.isValid(bookableItemId)) {
+      return sendResponse(res, 400, false, 'Invalid bookable item ID format');
     }
 
-    // Check room availability
-    const room = await Room.findById(roomId);
-    if (!room) {
-      return sendResponse(res, 404, false, 'Room not found');
+    const resolvedItem = await resolveBookableItem(bookableItemId);
+    if (!resolvedItem) {
+      return sendResponse(
+        res,
+        404,
+        false,
+        'Bookable item not found',
+      );
     }
+    const { type: resolvedType, item } = resolvedItem;
 
-    if (!room.available) {
+    if (resolvedType === 'Property') {
+      if (item.propertyType !== PropertyType.WHOLE) {
+        return sendResponse(
+          res,
+          400,
+          false,
+          'Only whole properties can be booked directly; select a room instead',
+        );
+      }
+      if (item.available === false) {
+        return sendResponse(
+          res,
+          409,
+          false,
+          'This property is currently not available for booking',
+        );
+      }
+    } else if (item.available === false) {
       return sendResponse(
         res,
         409,
@@ -133,7 +192,8 @@ export const createBooking = asyncHandler(async (req, res, next) => {
 
     const booking = await Booking.create({
       clientId: new mongoose.Types.ObjectId(clientId),
-      roomId: new mongoose.Types.ObjectId(roomId),
+      bookableItemType: resolvedType,
+      bookableItemId: new mongoose.Types.ObjectId(bookableItemId),
       bookingDate: bookingDate ? new Date(bookingDate) : new Date(),
       status: BookingStatus.PENDING,
       amount,
@@ -144,27 +204,27 @@ export const createBooking = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Failed to create booking');
     }
 
-    // Notify the property owner (agent) that a client reserved their room.
-    const ownerId = await ownerOfRoom(room);
+    const ownerId = await ownerOfBookableItem(item);
     if (ownerId) {
       await createNotification({
         recipientRole: 'AGENT',
         recipientId: ownerId,
         kind: 'SYSTEM',
         title: 'New booking',
-        message: `A client reserved a room on one of your properties (MK ${amount}).`,
+        message: resolvedType === 'Property'
+          ? `A client reserved a property on your listing (MK ${amount}).`
+          : `A client reserved a room on one of your properties (MK ${amount}).`,
         senderId: clientId,
         bookingId: booking._id,
       });
     }
 
-    // Mark room as unavailable
-    room.available = false;
-    await room.save();
+    item.available = false;
+    await item.save();
 
     const populatedBooking = await Booking.findById(booking._id)
       .populate('clientId', 'firstName lastName email phone')
-      .populate('roomId');
+      .populate('bookableItemId');
 
     return sendResponse(
       res,
@@ -262,11 +322,14 @@ export const cancelBooking = asyncHandler(async (req, res, next) => {
     booking.status = BookingStatus.CANCELLED;
     await booking.save();
 
-    // Release room availability back
-    const room = await Room.findById(booking.roomId);
-    if (room) {
-      room.available = true;
-      await room.save();
+    // Release the bookable item availability back.
+    const normalizedType = normalizeBookableItemType(booking.bookableItemType);
+    const bookableItem = normalizedType === 'Property'
+      ? await Property.findById(booking.bookableItemId)
+      : await Room.findById(booking.bookableItemId);
+    if (bookableItem) {
+      bookableItem.available = true;
+      await bookableItem.save();
     }
 
     // Notify the client that their booking was cancelled (and the owner).
@@ -281,7 +344,7 @@ export const cancelBooking = asyncHandler(async (req, res, next) => {
         bookingId: booking._id,
       });
     }
-    const ownerId = await ownerOfRoom(room);
+    const ownerId = await ownerOfBookableItem(bookableItem);
     if (ownerId) {
       await createNotification({
         recipientRole: 'AGENT',
@@ -340,7 +403,11 @@ export const confirmBooking = asyncHandler(async (req, res, next) => {
         bookingId: booking._id,
       });
     }
-    const ownerId = await ownerOfRoom(await Room.findById(booking.roomId));
+    const normalizedType = normalizeBookableItemType(booking.bookableItemType);
+    const ownerItem = normalizedType === 'Property'
+      ? await Property.findById(booking.bookableItemId)
+      : await Room.findById(booking.bookableItemId);
+    const ownerId = await ownerOfBookableItem(ownerItem);
     if (ownerId) {
       await createNotification({
         recipientRole: 'AGENT',
@@ -397,11 +464,14 @@ export const deleteBooking = asyncHandler(async (req, res, next) => {
 
     await Booking.findByIdAndDelete(bookingId);
 
-    // Release room  back if booking was active
-    const room = await Room.findById(booking.roomId);
-    if (room) {
-      room.available = true;
-      await room.save();
+    // Release the bookable item back if the booking was active.
+    const normalizedType = normalizeBookableItemType(booking.bookableItemType);
+    const item = normalizedType === 'Property'
+      ? await Property.findById(booking.bookableItemId)
+      : await Room.findById(booking.bookableItemId);
+    if (item) {
+      item.available = true;
+      await item.save();
     }
 
     return sendResponse(

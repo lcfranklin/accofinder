@@ -1,9 +1,9 @@
 import Joi from 'joi';
 
 export const createBookingSchema = Joi.object({
-  roomId: Joi.string().hex().length(24).required().messages({
-    'string.empty': 'roomId is required',
-    'string.length': 'roomId must be a valid 24-character hex ID',
+  bookableItemId: Joi.string().hex().length(24).required().messages({
+    'any.required': 'bookableItemId is required',
+    'string.length': 'bookableItemId must be a valid 24-character hex ID',
   }),
   clientId: Joi.string().hex().length(24).optional().messages({
     'string.length': 'clientId must be a valid 24-character hex ID',

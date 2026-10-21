@@ -24,7 +24,7 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
       path: 'clientId',
       select: 'firstName surname email phone',
     })
-    .populate('roomId');
+    .populate('bookableItemId');
 
   if (!findBookingData) {
     return sendResponse(res, 404, false, 'Booking not found');
@@ -165,7 +165,8 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
   // Notify the payer (client) — and the property owner on success — so the
   // right user sees the outcome instead of everyone.
   if (foundPayment.bookingId) {
-    const bookingForNotify = await Booking.findById(foundPayment.bookingId);
+    const bookingForNotify = await Booking.findById(foundPayment.bookingId)
+      .populate('bookableItemId');
     const payingClientId = bookingForNotify?.clientId;
     if (foundPayment.status === PaymentStatus.SUCCESS) {
       if (payingClientId) {
@@ -179,12 +180,11 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
           bookingId: foundPayment.bookingId,
         });
       }
-      const roomForOwner = bookingForNotify
-        ? await Room.findById(bookingForNotify.roomId)
-        : null;
-      const propOwner = roomForOwner?.propertyId
-        ? (await Property.findById(roomForOwner.propertyId))?.owner
-        : null;
+      const bookableItem = bookingForNotify?.bookableItemId;
+      const propOwner = bookableItem?.owner
+        || (bookableItem?.propertyId
+          ? (await Property.findById(bookableItem.propertyId))?.owner
+          : null);
       if (propOwner) {
         await createNotification({
           recipientRole: 'AGENT',
@@ -259,7 +259,7 @@ export const getPaymentsByUser = asyncHandler(async (req, res, next) => {
 
 //  POST /payments/cancel
 //  The app posts the full payment payload. Cancelling marks the payment as
-//  failed and returns the booking to PENDING (releasing the room again).
+//  failed and returns the booking to PENDING (releasing its bookable item).
 export const cancelPayment = asyncHandler(async (req, res, next) => {
   const { id, bookingId, transactionRef } = req.body;
 
@@ -288,10 +288,12 @@ export const cancelPayment = asyncHandler(async (req, res, next) => {
       booking.status = BookingStatus.PENDING;
       await booking.save();
 
-      const room = await Room.findById(booking.roomId);
-      if (room) {
-        room.available = true;
-        await room.save();
+      const bookableItem = booking.bookableItemType === 'Property'
+        ? await Property.findById(booking.bookableItemId)
+        : await Room.findById(booking.bookableItemId);
+      if (bookableItem) {
+        bookableItem.available = true;
+        await bookableItem.save();
       }
 
       // Notify the payer (client) their payment was cancelled/failed.

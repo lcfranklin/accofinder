@@ -8,9 +8,15 @@ const bookingSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    roomId: {
+    bookableItemType: {
+      type: String,
+      enum: ['Room', 'Property'],
+      required: true,
+      trim: true,
+    },
+    bookableItemId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Room',
+      refPath: 'bookableItemType',
       required: true,
     },
     bookingDate: { type: Date, required: true, default: Date.now },

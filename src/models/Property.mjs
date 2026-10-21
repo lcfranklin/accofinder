@@ -56,10 +56,19 @@ const propertySchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-
+    available: {
+      type: Boolean,
+      default: true,
+    },
     media: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Media' }],
   },
   { timestamps: true },
 );
+
+propertySchema.pre('validate', function setInitialAvailability() {
+  if (this.isNew) {
+    this.available = this.propertyType === PropertyType.WHOLE;
+  }
+});
 
 export const Property = mongoose.model('Property', propertySchema);
