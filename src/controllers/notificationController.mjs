@@ -98,12 +98,25 @@ export const getAnnouncementHistory = asyncHandler(async (req, res, next) => {
   }
 });
 
-//  get all notifications for the logged-in user
+//  get all notifications for the logged-in user, optionally scoped by role
 export const getNotifications = asyncHandler(async (req, res, next) => {
   try {
     const userId = getCurrentUserId(req);
+    const filter = { recipientId: userId };
 
-    const notifications = await Notification.find({ recipientId: userId }).sort(
+    // Optional role scope: ?role=AGENT returns agent-addressed notifications
+    // AND announcements (delivered to all). This lets an admin acting as an
+    // agent on the agent dashboard see announcements intended for everyone,
+    // without leaking admin-targeted notifications.
+    const { role } = req.query;
+    if (role && ['ADMIN', 'AGENT', 'CLIENT'].includes(role)) {
+      filter.$or = [
+        { recipientRole: role },
+        { announcement: true },
+      ];
+    }
+
+    const notifications = await Notification.find(filter).sort(
       { createdAt: -1 },
     );
 
@@ -123,11 +136,21 @@ export const getNotifications = asyncHandler(async (req, res, next) => {
 export const getUnreadNotifications = asyncHandler(async (req, res, next) => {
   try {
     const userId = getCurrentUserId(req);
-
-    const notifications = await Notification.find({
+    const filter = {
       recipientId: userId,
       isRead: false,
-    }).sort({ createdAt: -1 });
+    };
+
+    // Optional role scope, same semantics as getNotifications.
+    const { role } = req.query;
+    if (role && ['ADMIN', 'AGENT', 'CLIENT'].includes(role)) {
+      filter.$or = [
+        { recipientRole: role },
+        { announcement: true },
+      ];
+    }
+
+    const notifications = await Notification.find(filter).sort({ createdAt: -1 });
 
     return sendResponse(
       res,
@@ -148,11 +171,21 @@ export const getUnreadNotifications = asyncHandler(async (req, res, next) => {
 export const getNotificationCount = asyncHandler(async (req, res, next) => {
   try {
     const userId = getCurrentUserId(req);
-
-    const count = await Notification.countDocuments({
+    const filter = {
       recipientId: userId,
       isRead: false,
-    });
+    };
+
+    // Optional role scope, same semantics as getNotifications.
+    const { role } = req.query;
+    if (role && ['ADMIN', 'AGENT', 'CLIENT'].includes(role)) {
+      filter.$or = [
+        { recipientRole: role },
+        { announcement: true },
+      ];
+    }
+
+    const count = await Notification.countDocuments(filter);
 
     return sendResponse(res, 200, true, 'Notification count retrieved', {
       unread: count,

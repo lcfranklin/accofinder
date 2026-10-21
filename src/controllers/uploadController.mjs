@@ -169,9 +169,9 @@ export const updateMedia = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Invalid media ID format');
     }
 
-    const { isPrimary } = req.body || {};
-    if (isPrimary === undefined) {
-      return sendResponse(res, 400, false, 'Missing required field: isPrimary');
+    const { isPrimary, roomId } = req.body || {};
+    if (isPrimary === undefined && roomId === undefined) {
+      return sendResponse(res, 400, false, 'Missing required field: isPrimary or roomId');
     }
 
     const media = await Media.findById(mediaId);
@@ -188,7 +188,15 @@ export const updateMedia = asyncHandler(async (req, res, next) => {
       );
     }
 
-    media.isPrimary = Boolean(isPrimary);
+    if (isPrimary !== undefined) {
+      media.isPrimary = Boolean(isPrimary);
+    }
+
+    if (roomId !== undefined) {
+      // Reassign the photo to another room ("-1" means whole property/common).
+      media.roomId = String(roomId);
+    }
+
     await media.save();
 
     return sendResponse(res, 200, true, 'Media updated successfully', media);

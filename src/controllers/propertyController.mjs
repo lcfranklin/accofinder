@@ -1,8 +1,12 @@
 import { Property } from '../models/Property.mjs';
 import { Room } from '../models/Room.mjs';
 import { Media } from '../models/media.mjs';
+import { Booking } from '../models/Booking.mjs';
+import { Review } from '../models/Review.mjs';
+import { Verification } from '../models/Verifications.mjs';
 import { User } from '../models/User.mjs';
 import { UserRole } from '../models/enums/UserRole.mjs';
+import { BookingStatus } from '../models/enums/BookingStatus.mjs';
 import { deleteS3ObjectsByUrls } from '../config/s3.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import { createNotification } from '../services/notificationService.mjs';
@@ -163,6 +167,10 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Invalid or empty update fields');
     }
 
+    // Snapshot the current state so a decision notification is only sent when
+    // the verification status actually changes (not on every unrelated edit).
+    const before = await Property.findById(propertyId).select('owner verificationStatus');
+
     const updatedProperty = await Property.findByIdAndUpdate(
       propertyId,
       updateOp,
@@ -171,6 +179,33 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
 
     if (!updatedProperty) {
       return sendResponse(res, 404, false, 'Property not found or not updated');
+    }
+
+    // This is the path the mobile admin app uses (PUT /house-listing/:id). It
+    // used to persist the decision without telling the owner, so a rejected
+    // agent never saw a notification. Mirror the approval endpoint here.
+    if (
+      before &&
+      verificationStatus !== undefined &&
+      verificationStatus !== before.verificationStatus &&
+      (verificationStatus === 'REJECTED' || verificationStatus === 'VERIFIED')
+    ) {
+      const recipientId = updatedProperty.owner || before.owner;
+      if (recipientId) {
+        const reason = (setUpdates.verificationReason || '').trim();
+        await createNotification({
+          recipientRole: 'AGENT',
+          recipientId,
+          kind: 'SYSTEM',
+          title: verificationStatus === 'REJECTED' ? 'Property rejected' : 'Property approved',
+          message: verificationStatus === 'REJECTED'
+            ? (reason
+                ? `Your property was rejected. Reason: ${reason}`
+                : 'Your property was rejected. Please review it and resubmit.')
+            : 'Your property has been approved and is now live.',
+          senderId: req.user?._id,
+        });
+      }
     }
 
     return sendResponse(res, 200, true, 'Property updated successfully', updatedProperty);
@@ -189,25 +224,30 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
       isActive,
       search,
       owner,
+      verificationStatus,
       page = 1,
-      limit = 10,
+      limit = 50,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = req.validatedData || req.query;
 
     const filter = {};
+    if (verificationStatus) filter.verificationStatus = verificationStatus;
     if (owner) filter.owner = owner;
 
-    // Privacy: an authenticated, non-admin caller (agent/landlord) who does not
-    // pass an explicit "owner" only gets their own properties back, not the
-    // whole database. The endpoint stays public for clients browsing the
-    // catalogue, and admins keep seeing everything.
-    if (
-      !owner &&
-      req.user &&
-      String(req.user.role || '').toUpperCase() !== 'ADMIN'
-    ) {
-      filter.owner = req.user._id;
+    const callerRole = String(req.user?.role || '').toUpperCase();
+
+    // Privacy / catalogue rules:
+    // - Owners/managers (agent, landlord) who do not pass an explicit "owner"
+    //   only get their own properties back, not the whole database.
+    // - The public catalogue (anonymous users and CLIENTS) only ever reveals
+    //   VERIFIED listings, so unverified or pending listings cannot leak to
+    //   people browsing the app. Only admins see every status.
+    if (!owner && callerRole !== 'ADMIN') {
+      if (req.user && (callerRole === 'AGENT' || callerRole === 'LANDLORD'))
+        filter.owner = req.user._id;
+      filter.verificationStatus = 'VERIFIED';
+      if (isActive === undefined) filter.isActive = true;
     }
 
     if (propertyType) filter.propertyType = propertyType;
@@ -291,14 +331,62 @@ export const deleteProperty = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Invalid property ID');
     }
 
+    // Rooms have to be resolved up front: bookings reference rooms rather than
+    // properties, so the guard below needs their ids before the cascade runs.
+    const rooms = await Room.find({ propertyId }).select('_id');
+    const roomIds = rooms.map((room) => room._id);
+
+    // Deleting a property that still has occupied rooms would orphan live
+    // bookings against rooms that no longer exist. Only CANCELLED and EXPIRED
+    // release the room; holds, in-flight payments, retryable failures and
+    // confirmed bookings all still occupy it. An unrecognised future status
+    // blocks by default, which is the safe direction for a guard.
+    const activeBookingFilter = {
+      roomId: { $in: roomIds },
+      status: { $nin: [BookingStatus.CANCELLED, BookingStatus.EXPIRED] },
+    };
+    const activeBookings = roomIds.length
+      ? await Booking.countDocuments(activeBookingFilter)
+      : 0;
+
+    // force=true is the explicit override the admin confirmation dialog sends
+    // after it has shown the warning below.
+    const force = req.query.force === 'true';
+
+    if (activeBookings > 0 && !force) {
+      return sendResponse(
+        res,
+        409,
+        false,
+        `This property still has ${activeBookings} active booking${activeBookings === 1 ? '' : 's'}. Deleting it now would leave those bookings without a room.`,
+        null,
+        { activeBookings }
+      );
+    }
+
     const deletedProperty = await Property.findByIdAndDelete(propertyId);
 
     if (!deletedProperty) {
       return sendResponse(res, 404, false, 'Failed to delete property or property not found');
     }
 
+    // Forced delete: close the outstanding holds instead of leaving bookings
+    // pointing at deleted rooms. The admin dialog states this before confirming.
+    if (activeBookings > 0) {
+      await Booking.updateMany(activeBookingFilter, {
+        $set: { status: BookingStatus.CANCELLED },
+      });
+    }
+
     // Remove related rooms.
     await Room.deleteMany({ propertyId });
+
+    // Reviews and verification records are keyed directly on propertyId, so
+    // they would otherwise outlive the property as dangling rows - a deleted
+    // listing still showing its rating history and approval audit trail.
+    // Nothing references them in turn, so they can go unconditionally.
+    await Review.deleteMany({ propertyId });
+    await Verification.deleteMany({ propertyId });
 
     // Remove related media records AND their actual files from S3 so images do
     // not leak as orphaned objects in the bucket.

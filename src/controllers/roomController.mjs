@@ -1,6 +1,10 @@
 import { Room } from '../models/Room.mjs';
 import { Property } from '../models/Property.mjs';
 import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import {
+  decorateRoomsWithHold,
+  decorateRoomWithHold,
+} from '../services/holdService.mjs';
 import mongoose from 'mongoose';
 
 // get all rooms
@@ -61,7 +65,16 @@ export const getAllRooms = asyncHandler(async (req, res, next) => {
       );
     }
 
-    return sendResponse(res, 200, true, 'Rooms retrieved successfully', rooms);
+    // A room under a live hold is still listed - it is not permanently booked -
+    // but it is annotated so the client can show "On Hold" and disable the
+    // action instead of pretending the room is free and failing at submit time.
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Rooms retrieved successfully',
+      decorateRoomsWithHold(rooms),
+    );
   } catch (error) {
     next(error);
   }
@@ -86,7 +99,7 @@ export const getRoomsByProperty = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Rooms for property retrieved successfully',
-      rooms,
+      decorateRoomsWithHold(rooms),
     );
   } catch (error) {
     next(error);
@@ -111,7 +124,13 @@ export const getRoomById = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, `Room with id ${roomId} not found`);
     }
 
-    return sendResponse(res, 200, true, 'Room found', room);
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Room found',
+      decorateRoomWithHold(room),
+    );
   } catch (error) {
     next(error);
   }

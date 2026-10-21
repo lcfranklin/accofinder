@@ -14,6 +14,20 @@ propertyRoutes.get(
   propertyController.getAllProperties,
 );
 
+// Admin-only listing. The public `GET /` above is intentionally unauthenticated
+// (anonymous browsing must work), which means `req.user` is never set there and
+// the admin branch in the controller can never run - so admins were only ever
+// shown VERIFIED listings. This route authenticates first, so an admin sees
+// every status (and the `verificationStatus` filter is honoured). It MUST be
+// declared before `/:id`, or "admin" would be captured as an id.
+propertyRoutes.get(
+  '/admin',
+  isAuthenticated,
+  checkRole(['ADMIN']),
+  validateRequest(queryPropertySchema, 'query'),
+  propertyController.getAllProperties,
+);
+
 propertyRoutes.get('/:id', propertyController.getPropertyById);
 
 propertyRoutes.post(
@@ -32,10 +46,19 @@ propertyRoutes.put(
   propertyController.updateProperty,
 );
 
+// Delete is ADMIN-only, unlike create/update above.
+//
+// Reason: this is not a plain record delete. The controller also removes every
+// room on the property, deletes the media records AND their S3 objects, and
+// leaves any existing bookings behind as orphans (their roomId now dangles).
+// That is not a decision an agent should be able to make unilaterally - and
+// the route used to be guarded by role only, with no ownership check in the
+// controller, so any authenticated agent could delete any property in the
+// system by id.
 propertyRoutes.delete(
   '/:id',
   isAuthenticated,
-  checkRole(['LANDLORD', 'AGENT', 'ADMIN']),
+  checkRole(['ADMIN']),
   propertyController.deleteProperty,
 );
 

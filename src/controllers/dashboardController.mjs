@@ -1,10 +1,22 @@
 import { User } from '../models/User.mjs';
 import { Property } from '../models/Property.mjs';
 import { Booking } from '../models/Booking.mjs';
+import { Room } from '../models/Room.mjs';
 import { Dispute } from '../models/Dispute.mjs';
 import { Payment } from '../models/Payment.mjs';
 import { UserRole } from '../models/enums/UserRole.mjs';
+import { BookingStatus } from '../models/enums/BookingStatus.mjs';
 import { asyncHandler, sendResponse, withIdList } from '../utils/helpers.mjs';
+
+// A booking only represents realised revenue once its payment has been
+// verified. Under the provisional-hold model a booking starts as
+// PendingPayment / PaymentInFlight and can end as Expired, Failed, Cancelled or
+// Refunded without ever being paid, so none of those may inflate booking value
+// or platform commission. Legacy 'Paid' rows (pre-hold model) are counted too.
+const CONFIRMED_BOOKING_STATUSES = [
+  BookingStatus.CONFIRMED,
+  BookingStatus.PAID,
+];
 
 //  Admin dashboard stats.
 //
@@ -28,7 +40,7 @@ export const getDashboardStats = asyncHandler(async (req, res, next) => {
       Property.countDocuments({ verificationStatus: 'PENDING' }),
       Booking.countDocuments({}),
       Booking.aggregate([
-        { $match: { status: { $ne: 'Cancelled' } } },
+        { $match: { status: { $in: CONFIRMED_BOOKING_STATUSES } } },
         {
           $group: {
             _id: null,
@@ -84,7 +96,9 @@ const toPaymentsList = async () => {
       amount: p.amount || 0,
       status: p.status,
       method: p.method || '',
-      date: p.paidAt ? p.paidAt.toISOString().slice(0, 10) : p.createdAt.toISOString().slice(0, 10),
+      date: p.paidAt
+        ? p.paidAt.toISOString().slice(0, 10)
+        : p.createdAt.toISOString().slice(0, 10),
       booking: p.bookingId ? String(p.bookingId._id || p.bookingId) : '',
       kind: 'Payment',
       user: '',
@@ -95,19 +109,49 @@ const toPaymentsList = async () => {
 };
 
 const toCommissionsList = async () => {
-  const [agents, bookings] = await Promise.all([
-    User.find({ role: UserRole.AGENT }).select('firstName surname commissionRate assignedArea'),
-    Booking.find({ status: { $ne: 'Cancelled' } }).select('commissionAmount'),
-  ]);
+  const agents = await User.find({ role: UserRole.AGENT }).select(
+    'firstName surname commissionRate assignedArea',
+  );
+
+  // A booking belongs to an agent only through its room's property owner
+  // (booking -> room -> property -> owner). The previous implementation summed
+  // every booking on the platform for every agent, so each row reported the
+  // same overall count and amount (e.g. "19 bookings" on every agent) instead
+  // of that agent's own figures.
+  const bookings = await Booking.find({
+    status: { $in: CONFIRMED_BOOKING_STATUSES },
+  })
+    .select('commissionAmount roomId')
+    .populate({
+      path: 'roomId',
+      select: 'propertyId',
+      populate: { path: 'propertyId', select: 'owner' },
+    });
+
+  // Aggregate per owner once, then read each agent's bucket by id.
+  const byOwner = new Map();
+  for (const booking of bookings) {
+    const owner =
+      booking.roomId && booking.roomId.propertyId
+        ? booking.roomId.propertyId.owner
+        : null;
+    if (!owner) continue;
+    const key = String(owner);
+    const agg = byOwner.get(key) || { count: 0, amount: 0 };
+    agg.count += 1;
+    agg.amount += booking.commissionAmount || 0;
+    byOwner.set(key, agg);
+  }
 
   const commissions = agents.map((agent) => {
-    const rate = typeof agent.commissionRate === 'number' ? agent.commissionRate : 0;
-    const amount = bookings.reduce((sum, b) => sum + (b.commissionAmount || 0), 0);
+    const rate =
+      typeof agent.commissionRate === 'number' ? agent.commissionRate : 0;
+    const agg = byOwner.get(String(agent._id)) || { count: 0, amount: 0 };
     return {
       agent: `${agent.firstName || ''} ${agent.surname || ''}`.trim(),
-      amount,
-      status: amount > 0 ? 'Due' : 'Settled',
-      bookings: bookings.length,
+      amount: agg.amount,
+      status: agg.amount > 0 ? 'Due' : 'Settled',
+      bookings: agg.count,
       area: agent.assignedArea || '',
       rate,
     };
@@ -122,7 +166,10 @@ const toCommissionsList = async () => {
 };
 
 const toPayoutsList = async () => {
-  const payments = await Payment.find({ status: 'Success', payoutStatus: 'Pending' })
+  const payments = await Payment.find({
+    status: 'Success',
+    payoutStatus: 'Pending',
+  })
     .populate('bookingId', 'amount')
     .sort({ paidAt: -1 })
     .limit(100);

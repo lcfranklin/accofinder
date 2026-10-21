@@ -30,12 +30,21 @@ export const asyncHandler = (fn) => (req, res, next) => {
  *
  * It handles response sending. whether success or failure
  */
-export const sendResponse = (res, status, success, message, data = null) => {
-  res.status(status).json({
+export const sendResponse = (res, status, success, message, data = null, meta = null) => {
+  const body = {
     success,
     message,
     data,
-  });
+  };
+
+  // Optional extra top-level keys (e.g. booking hold state on a 409). Merged
+  // last so a caller can add context without reshaping `data`, and skipped
+  // entirely when unused so existing responses are byte-identical.
+  if (meta && typeof meta === 'object') {
+    Object.assign(body, meta);
+  }
+
+  res.status(status).json(body);
 };
 
 /**
