@@ -114,16 +114,14 @@ const toCommissionsList = async () => {
   );
 
   // A booking belongs to an agent only through its room's property owner
-  // (booking -> room -> property -> owner). The previous implementation summed
-  // every booking on the platform for every agent, so each row reported the
-  // same overall count and amount (e.g. "19 bookings" on every agent) instead
-  // of that agent's own figures.
+  // (booking -> bookableItemId via Room -> property -> owner). Handle polymorphic
+  // bookings (Room/Property).
   const bookings = await Booking.find({
     status: { $in: CONFIRMED_BOOKING_STATUSES },
   })
-    .select('commissionAmount roomId')
+    .select('commissionAmount bookableItemType bookableItemId')
     .populate({
-      path: 'roomId',
+      path: 'bookableItemId',
       select: 'propertyId',
       populate: { path: 'propertyId', select: 'owner' },
     });
@@ -131,10 +129,15 @@ const toCommissionsList = async () => {
   // Aggregate per owner once, then read each agent's bucket by id.
   const byOwner = new Map();
   for (const booking of bookings) {
-    const owner =
-      booking.roomId && booking.roomId.propertyId
-        ? booking.roomId.propertyId.owner
-        : null;
+    let owner = null;
+    const bookable = booking.bookableItemId;
+    if (bookable) {
+      if (bookable.propertyId && bookable.propertyId.owner) {
+        owner = bookable.propertyId.owner;
+      } else if (bookable.owner) {
+        owner = bookable.owner;
+      }
+    }
     if (!owner) continue;
     const key = String(owner);
     const agg = byOwner.get(key) || { count: 0, amount: 0 };
