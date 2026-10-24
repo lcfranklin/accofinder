@@ -4,6 +4,7 @@ import { initSocket } from './sockets/socketHandler.mjs';
 import { initFirebase } from './config/firebase.mjs';
 import { startHoldExpiryJob } from './services/holdExpiryService.mjs';
 import { HOLD_SWEEP_ENABLED } from './config/holdConfig.mjs';
+import { startPaymentReconciliationJob } from './services/paymentReconciliationService.mjs';
 
 const PORT = process.env.PORT || 5000;
 const server = createServer(app);
@@ -22,6 +23,7 @@ const startServer = async () => {
     } else {
       console.log('[holdExpiry] sweeper disabled via HOLD_SWEEP_ENABLED=false');
     }
+    startPaymentReconciliationJob();
 
     server.listen(PORT, () => {
       console.log(`Server running in ${process.env.MODE_ENV || 'development'} mode on port: ${PORT}`);
