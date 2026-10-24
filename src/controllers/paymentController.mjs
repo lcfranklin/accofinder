@@ -18,6 +18,30 @@ import mongoose from 'mongoose';
 const CURRENCY = process.env.PAYCHANGU_CURRENCY || 'MWK';
 
 /**
+ * Legacy bookings were created before Booking used the polymorphic
+ * bookableItemType/bookableItemId fields. They still carry roomId instead, and
+ * because both polymorphic fields are `required`, saving such a document throws
+ * a ValidationError. Copy the legacy value across so cancellation/refund saves
+ * keep working on old rows.
+ */
+const backfillBookableItemFields = (booking) => {
+  if (!booking) return booking;
+  const legacyRoomId =
+    booking.roomId ||
+    (typeof booking.get === 'function' ? booking.get('roomId') : null) ||
+    booking._doc?.roomId ||
+    null;
+
+  if (!booking.bookableItemType) {
+    booking.bookableItemType = 'Room';
+  }
+  if (!booking.bookableItemId && legacyRoomId) {
+    booking.bookableItemId = legacyRoomId;
+  }
+  return booking;
+};
+
+/**
  * Push a booking's hold out by the in-flight grace period because a payment has
  * been sent to the provider.
  *
@@ -511,11 +535,28 @@ export const cancelPayment = asyncHandler(async (req, res, next) => {
         );
       }
 
+      // Legacy bookings predate the polymorphic bookable item fields, so they
+      // have no bookableItemType/bookableItemId. Those are required by the
+      // schema, so backfill them from roomId before saving or the save throws
+      // a ValidationError (HTTP 500).
+      backfillBookableItemFields(booking);
+
       booking.status = BookingStatus.CANCELLED;
       booking.expiresAt = null;
-      await booking.save();
       try {
-        const roomId = booking.bookableItemType === 'Room' ? booking.bookableItemId : booking.roomId;
+        await booking.save();
+      } catch (e) {
+        if (e.name === 'ValidationError') {
+          // Cannot backfill (e.g. neither field was ever stored): still make
+          // the cancellation stick rather than failing the whole request.
+          console.warn('[cancelPayment] saving booking without validation:', e.message);
+          await booking.save({ validateBeforeSave: false });
+        } else {
+          throw e;
+        }
+      }
+      try {
+        const roomId = booking.bookableItemType === 'Room' ? booking.bookableItemId : booking.bookableItemId || booking.roomId;
         if (roomId) {
           await releaseHold({ roomId, bookingId: booking._id });
         }
@@ -597,15 +638,25 @@ export const refundPayment = asyncHandler(async (req, res, next) => {
   if (payment.bookingId) {
     const booking = await Booking.findById(payment.bookingId);
     if (booking) {
+      backfillBookableItemFields(booking);
       booking.refundedAt = booking.refundedAt || new Date();
       if (booking.status !== BookingStatus.CANCELLED) {
         booking.status = BookingStatus.CANCELLED;
       }
       booking.expiresAt = null;
-      await booking.save();
+      try {
+        await booking.save();
+      } catch (e) {
+        if (e.name === 'ValidationError') {
+          console.warn('[refundPayment] saving booking without validation:', e.message);
+          await booking.save({ validateBeforeSave: false });
+        } else {
+          throw e;
+        }
+      }
 
       try {
-        const roomId = booking.bookableItemType === 'Room' ? booking.bookableItemId : booking.roomId;
+        const roomId = booking.bookableItemType === 'Room' ? booking.bookableItemId : booking.bookableItemId || booking.roomId;
         if (roomId) {
           await releaseHold({ roomId, bookingId: booking._id });
         }
