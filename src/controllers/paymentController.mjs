@@ -14,7 +14,6 @@ import paychangu from '../utils/paychangu.mjs';
 import { PaymentStatus } from '../models/enums/PaymentStatus.mjs';
 import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
-import { incrementBookingsCount } from '../services/userStatsService.mjs';
 
 const CURRENCY = process.env.PAYCHANGU_CURRENCY || 'MWK';
 
