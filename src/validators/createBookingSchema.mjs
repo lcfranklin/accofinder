@@ -8,6 +8,7 @@ export const createBookingSchema = Joi.object({
   clientId: Joi.string().hex().length(24).optional().messages({
     'string.length': 'clientId must be a valid 24-character hex ID',
   }),
+  bookableItemType: Joi.string().valid('Room', 'Property').optional(),
   bookingDate: Joi.date().iso().optional().messages({
     'date.base': 'Booking date must be a valid date',
   }),

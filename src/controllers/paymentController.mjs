@@ -48,6 +48,30 @@ const confirmBookedItem = async (booking) => {
 };
 
 /**
+ * Legacy bookings were created before Booking used the polymorphic
+ * bookableItemType/bookableItemId fields. They still carry roomId instead, and
+ * because both polymorphic fields are `required`, saving such a document throws
+ * a ValidationError. Copy the legacy value across so cancellation/refund saves
+ * keep working on old rows.
+ */
+const backfillBookableItemFields = (booking) => {
+  if (!booking) return booking;
+  const legacyRoomId =
+    booking.roomId ||
+    (typeof booking.get === 'function' ? booking.get('roomId') : null) ||
+    booking._doc?.roomId ||
+    null;
+
+  if (!booking.bookableItemType) {
+    booking.bookableItemType = 'Room';
+  }
+  if (!booking.bookableItemId && legacyRoomId) {
+    booking.bookableItemId = legacyRoomId;
+  }
+  return booking;
+};
+
+/**
  * Push a booking's hold out by the in-flight grace period because a payment has
  * been sent to the provider.
  *
@@ -513,6 +537,8 @@ export const cancelPayment = asyncHandler(async (req, res, next) => {
 
   if (!alreadySettled) {
     payment.status = PaymentStatus.FAILED;
+    payment.failureReason = payment.failureReason || 'cancelled_by_user';
+    payment.failedAt = payment.failedAt || new Date();
     await payment.save();
   }
 
@@ -532,9 +558,34 @@ export const cancelPayment = asyncHandler(async (req, res, next) => {
         );
       }
 
+      // Legacy bookings predate the polymorphic bookable item fields, so they
+      // have no bookableItemType/bookableItemId. Those are required by the
+      // schema, so backfill them from roomId before saving or the save throws
+      // a ValidationError (HTTP 500).
+      backfillBookableItemFields(booking);
+
       booking.status = BookingStatus.CANCELLED;
       booking.expiresAt = null;
-      await booking.save();
+      try {
+        await booking.save();
+      } catch (e) {
+        if (e.name === 'ValidationError') {
+          // Cannot backfill (e.g. neither field was ever stored): still make
+          // the cancellation stick rather than failing the whole request.
+          console.warn('[cancelPayment] saving booking without validation:', e.message);
+          await booking.save({ validateBeforeSave: false });
+        } else {
+          throw e;
+        }
+      }
+      try {
+        const roomId = booking.bookableItemType === 'Room' ? booking.bookableItemId : booking.bookableItemId || booking.roomId;
+        if (roomId) {
+          await releaseHold({ roomId, bookingId: booking._id });
+        }
+      } catch (e) {
+        console.error('[cancelPayment] releaseHold failed:', e.message);
+      }
 
       const isProperty = String(booking.bookableItemType).toLowerCase() === 'property';
       const bookableItem = isProperty
@@ -574,6 +625,152 @@ export const cancelPayment = asyncHandler(async (req, res, next) => {
     withId(payment),
     { roomReleased },
   );
+});
+
+//  POST /payments/refund
+//  Admin/support action to refund a successful payment. Marks payment as
+//  refunded, sets booking refundedAt if applicable, releases room, and notifies client.
+export const refundPayment = asyncHandler(async (req, res, next) => {
+  const { id, paymentId, bookingId, transactionRef, reason } = req.body || {};
+
+  let payment = null;
+
+  if ((id && mongoose.Types.ObjectId.isValid(id))) {
+    payment = await Payment.findById(id);
+  }
+  if (!payment && paymentId && mongoose.Types.ObjectId.isValid(paymentId)) {
+    payment = await Payment.findById(paymentId);
+  }
+  if (!payment && bookingId) {
+    payment = await Payment.findOne({ bookingId }).sort({ createdAt: -1 });
+  }
+  if (!payment && transactionRef) {
+    payment = await Payment.findOne({ transactionRef });
+  }
+
+  if (!payment) {
+    return sendResponse(res, 404, false, 'No payment found to refund');
+  }
+
+  if (payment.status === PaymentStatus.SUCCESS) {
+    payment.status = 'Refunded';
+    payment.failureReason = reason || payment.failureReason || 'refunded';
+    payment.failedAt = payment.failedAt || new Date();
+    await payment.save();
+  } else if (payment.status !== 'Refunded') {
+    payment.status = 'Refunded';
+    payment.failureReason = reason || payment.failureReason || 'refunded';
+    payment.failedAt = payment.failedAt || new Date();
+    await payment.save();
+  }
+
+  if (payment.bookingId) {
+    const booking = await Booking.findById(payment.bookingId);
+    if (booking) {
+      backfillBookableItemFields(booking);
+      booking.refundedAt = booking.refundedAt || new Date();
+      if (booking.status !== BookingStatus.CANCELLED) {
+        booking.status = BookingStatus.CANCELLED;
+      }
+      booking.expiresAt = null;
+      try {
+        await booking.save();
+      } catch (e) {
+        if (e.name === 'ValidationError') {
+          console.warn('[refundPayment] saving booking without validation:', e.message);
+          await booking.save({ validateBeforeSave: false });
+        } else {
+          throw e;
+        }
+      }
+
+      try {
+        const roomId = booking.bookableItemType === 'Room' ? booking.bookableItemId : booking.bookableItemId || booking.roomId;
+        if (roomId) {
+          await releaseHold({ roomId, bookingId: booking._id });
+        }
+      } catch (e) {
+        console.error('[refundPayment] releaseHold failed:', e.message);
+      }
+
+      const bookableItem = booking.bookableItemType === 'Property'
+        ? await Property.findById(booking.bookableItemId)
+        : await Room.findById(booking.bookableItemId);
+      if (bookableItem) {
+        bookableItem.available = true;
+        await bookableItem.save();
+      }
+
+      if (booking.clientId) {
+        try {
+          await createNotification({
+            recipientRole: 'CLIENT',
+            recipientId: booking.clientId,
+            kind: 'SYSTEM',
+            title: 'Booking refunded',
+            message: 'Your booking has been refunded and released. The room is available again.',
+            senderId: booking.clientId,
+            bookingId: payment.bookingId,
+          });
+        } catch (e) {
+          console.error('[refundPayment] notification failed:', e.message);
+        }
+      }
+    }
+  }
+
+  return sendResponse(res, 200, true, 'Payment refunded successfully', withId(payment));
+});
+
+export const settleCommission = asyncHandler(async (req, res, next) => {
+  const { id, agentId, agentName, paymentId, bookingId } = req.body || {};
+
+  // Mark related payment commission context as settled if exists
+  let payment = null;
+  if (paymentId && mongoose.Types.ObjectId.isValid(paymentId)) {
+    payment = await Payment.findById(paymentId);
+  } else if (bookingId && mongoose.Types.ObjectId.isValid(bookingId)) {
+    payment = await Payment.findOne({ bookingId }).sort({ createdAt: -1 });
+  }
+
+  if (payment) {
+    payment.payoutStatus = 'Settled';
+    await payment.save();
+  }
+
+  return sendResponse(res, 200, true, 'Commission settled successfully', {
+    id: id || agentId || agentName || null,
+    agentId: agentId || null,
+    agentName: agentName || null,
+    paymentId: payment ? payment._id : paymentId || null,
+    status: 'Settled',
+  });
+});
+
+export const releasePayout = asyncHandler(async (req, res, next) => {
+  const { id, landlordId, landlord, paymentId, bookingId } = req.body || {};
+
+  let payment = null;
+  if (paymentId && mongoose.Types.ObjectId.isValid(paymentId)) {
+    payment = await Payment.findById(paymentId);
+  } else if (bookingId && mongoose.Types.ObjectId.isValid(bookingId)) {
+    payment = await Payment.findOne({ bookingId }).sort({ createdAt: -1 });
+  }
+
+  if (payment) {
+    payment.payoutStatus = 'Paid';
+    payment.payoutDate = new Date();
+    await payment.save();
+  }
+
+  return sendResponse(res, 200, true, 'Payout released successfully', {
+    id: id || landlordId || landlord || null,
+    landlordId: landlordId || null,
+    landlord: landlord || null,
+    paymentId: payment ? payment._id : paymentId || null,
+    status: 'Paid',
+    payoutDate: payment ? payment.payoutDate : new Date(),
+  });
 });
 
 export const getSingleChargeDetails = asyncHandler(async (req, res, next) => {

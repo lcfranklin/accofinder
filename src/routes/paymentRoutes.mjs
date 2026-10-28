@@ -6,6 +6,9 @@ import {
   getSingleChargeDetails,
   getPaymentsByUser,
   cancelPayment,
+  refundPayment,
+  settleCommission,
+  releasePayout,
 } from '../controllers/paymentController.mjs';
 
 import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
@@ -49,5 +52,11 @@ paymentRoutes.get('/user/:userId', isAuthenticated, getPaymentsByUser);
 
 // Cancel a payment (returns booking to PENDING and releases the room)
 paymentRoutes.post('/cancel', isAuthenticated, cancelPayment);
+// Refund a successful payment (admin/support)
+paymentRoutes.post('/refund', isAuthenticated, checkRole(['ADMIN']), refundPayment);
+// Settle agent commission
+paymentRoutes.post('/commissions/settle', isAuthenticated, checkRole(['ADMIN']), settleCommission);
+// Release landlord payout
+paymentRoutes.post('/payouts/release', isAuthenticated, checkRole(['ADMIN']), releasePayout);
 
 export default paymentRoutes;

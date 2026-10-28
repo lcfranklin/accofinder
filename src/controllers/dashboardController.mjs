@@ -80,7 +80,14 @@ export const getDashboardStats = asyncHandler(async (req, res, next) => {
 //  zero summaries.
 const toPaymentsList = async () => {
   const payments = await Payment.find()
-    .populate('bookingId', 'amount')
+    .populate({
+      path: 'bookingId',
+      select: 'amount clientId clientName clientFirstName clientSurname clientEmail clientPhone',
+      populate: {
+        path: 'clientId',
+        select: 'firstName surname email phone',
+      },
+    })
     .sort({ createdAt: -1 })
     .limit(100);
 
@@ -91,6 +98,19 @@ const toPaymentsList = async () => {
     if (p.status === 'Success') totalCollected += p.amount || 0;
     else if (p.status === 'Initiated') pendingCount += 1;
 
+    const booking = p.bookingId || {};
+    const client = booking.clientId || {};
+    const userName =
+      booking.clientName ||
+      [client.firstName || booking.clientFirstName, client.surname || booking.clientSurname]
+        .filter(Boolean)
+        .join(' ') ||
+      booking.clientEmail ||
+      client.email ||
+      booking.clientPhone ||
+      client.phone ||
+      '';
+
     return {
       paymentId: String(p._id),
       amount: p.amount || 0,
@@ -99,9 +119,11 @@ const toPaymentsList = async () => {
       date: p.paidAt
         ? p.paidAt.toISOString().slice(0, 10)
         : p.createdAt.toISOString().slice(0, 10),
-      booking: p.bookingId ? String(p.bookingId._id || p.bookingId) : '',
+      booking: booking._id ? String(booking._id) : p.bookingId ? String(p.bookingId) : '',
+      bookingId: booking._id ? String(booking._id) : p.bookingId ? String(p.bookingId) : '',
       kind: 'Payment',
-      user: '',
+      user: userName,
+      transactionRef: p.transactionRef || '',
     };
   });
 
@@ -127,8 +149,15 @@ const toCommissionsList = async () => {
   // Aggregate per owner once, then read each agent's bucket by id.
   const byOwner = new Map();
   for (const booking of bookings) {
-    const item = booking.bookableItemId;
-    const owner = item?.owner || item?.propertyId?.owner;
+    let owner = null;
+    const bookable = booking.bookableItemId;
+    if (bookable) {
+      if (bookable.propertyId && bookable.propertyId.owner) {
+        owner = bookable.propertyId.owner;
+      } else if (bookable.owner) {
+        owner = bookable.owner;
+      }
+    }
     if (!owner) continue;
     const key = String(owner);
     const agg = byOwner.get(key) || { count: 0, amount: 0 };
