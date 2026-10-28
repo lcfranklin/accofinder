@@ -113,28 +113,22 @@ const toCommissionsList = async () => {
     'firstName surname commissionRate assignedArea',
   );
 
-  // A booking belongs to an agent only through its room's property owner
-  // (booking -> room -> property -> owner). The previous implementation summed
-  // every booking on the platform for every agent, so each row reported the
-  // same overall count and amount (e.g. "19 bookings" on every agent) instead
-  // of that agent's own figures.
+  // Resolve the owner through the bookable item, whether the booking targets a
+  // whole Property or a Room nested under one.
   const bookings = await Booking.find({
     status: { $in: CONFIRMED_BOOKING_STATUSES },
   })
-    .select('commissionAmount roomId')
+    .select('commissionAmount bookableItemId bookableItemType')
     .populate({
-      path: 'roomId',
-      select: 'propertyId',
+      path: 'bookableItemId',
       populate: { path: 'propertyId', select: 'owner' },
     });
 
   // Aggregate per owner once, then read each agent's bucket by id.
   const byOwner = new Map();
   for (const booking of bookings) {
-    const owner =
-      booking.roomId && booking.roomId.propertyId
-        ? booking.roomId.propertyId.owner
-        : null;
+    const item = booking.bookableItemId;
+    const owner = item?.owner || item?.propertyId?.owner;
     if (!owner) continue;
     const key = String(owner);
     const agg = byOwner.get(key) || { count: 0, amount: 0 };

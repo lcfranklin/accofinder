@@ -15,10 +15,12 @@ const propertySchema = new mongoose.Schema(
     description: { type: String, trim: true },
     bookingFee: {
       type: Number,
+      min: 0,
       default: 0,
     },
     rentalFee: {
       type: Number,
+      min: 0,
       default: 0,
     },
 
@@ -69,6 +71,24 @@ const propertySchema = new mongoose.Schema(
     media: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Media' }],
   },
   { timestamps: true },
+);
+
+// A listing is unique for an owner at a complete district/village address.
+// Incomplete legacy addresses are excluded so they do not all collide.
+propertySchema.index(
+  {
+    owner: 1,
+    'physicalAddress.district': 1,
+    'physicalAddress.village': 1,
+  },
+  {
+    unique: true,
+    name: 'unique_owner_physical_address',
+    partialFilterExpression: {
+      'physicalAddress.district': { $type: 'string' },
+      'physicalAddress.village': { $type: 'string' },
+    },
+  },
 );
 
 propertySchema.pre('validate', function setInitialAvailability() {

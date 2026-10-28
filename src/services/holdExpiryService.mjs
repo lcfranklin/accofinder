@@ -56,7 +56,7 @@ export const releaseExpiredHolds = async ({
   const candidates = await Booking.find(expiredHoldFilter(now))
     .sort({ expiresAt: 1 })
     .limit(limit)
-    .select('_id roomId clientId status amount');
+    .select('_id bookableItemId bookableItemType clientId status amount');
 
   for (const candidate of candidates) {
     try {
@@ -86,10 +86,20 @@ export const releaseExpiredHolds = async ({
       // releaseHold only clears the room if this booking still holds it, so a
       // late payment that confirmed the booking just before we got here cannot
       // be undone by the sweeper.
-      const released = await releaseHold({
-        roomId: claimed.roomId,
-        bookingId: claimed._id,
-      });
+      const isRoomBooking =
+        String(claimed.bookableItemType || '').toLowerCase() === 'room';
+      const released = isRoomBooking
+        ? await releaseHold({
+            roomId: claimed.bookableItemId,
+            bookingId: claimed._id,
+          })
+        : Boolean(
+            await Property.findOneAndUpdate(
+              { _id: claimed.bookableItemId, available: false },
+              { $set: { available: true } },
+              { returnDocument: 'after' },
+            ),
+          );
       if (released) stats.roomsReleased += 1;
 
       if (notify) {
@@ -113,10 +123,15 @@ export const releaseExpiredHolds = async ({
         // Best-effort owner lookup; a notification failure must not abort the
         // sweep, so this is wrapped separately.
         try {
-          const room = await Room.findById(claimed.roomId).select('propertyId');
-          const owner = room?.propertyId
-            ? (await Property.findById(room.propertyId))?.owner
-            : null;
+          const item = isRoomBooking
+            ? await Room.findById(claimed.bookableItemId).select('propertyId')
+            : await Property.findById(claimed.bookableItemId);
+          const property = isRoomBooking
+            ? item?.propertyId
+              ? await Property.findById(item.propertyId)
+              : null
+            : item;
+          const owner = property?.owner;
           if (owner) {
             await createNotification({
               recipientRole: 'AGENT',

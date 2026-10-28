@@ -8,7 +8,7 @@ import { queryRoomSchema } from '../validators/queryRoomSchema.mjs';
 
 const roomRoutes = express.Router();
 
-// Query rooms across properties (filtering by price, roomType, availability)
+// Query rooms across properties (filtering by rental fee, room type, availability)
 roomRoutes.get(
   '/',
   validateRequest(queryRoomSchema, 'query'),

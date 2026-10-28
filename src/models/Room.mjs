@@ -12,10 +12,16 @@ const roomSchema = new mongoose.Schema(
       required: [true, 'Room type is required'],
       trim: true,
     },
-    /* price: {
+    bookingFee: {
       type: Number,
+      min: 0,
       default: 0,
-    },*/
+    },
+    rentalFee: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
     available: {
       type: Boolean,
       default: true,

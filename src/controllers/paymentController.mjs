@@ -4,7 +4,7 @@ import { Room } from '../models/Room.mjs';
 import { Payment } from '../models/Payment.mjs';
 import { Property } from '../models/Property.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
-import { confirmRoom, releaseHold, isHoldActive } from '../services/holdService.mjs';
+import { confirmRoom, releaseHold } from '../services/holdService.mjs';
 import {
   PAYMENT_IN_FLIGHT_GRACE_MS,
   HOLD_HARD_CAP_MS,
@@ -16,6 +16,36 @@ import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
 
 const CURRENCY = process.env.PAYCHANGU_CURRENCY || 'MWK';
+
+const isRoomBooking = (booking) =>
+  String(booking?.bookableItemType || '').toLowerCase() === 'room';
+
+const confirmBookedItem = async (booking) => {
+  if (isRoomBooking(booking)) {
+    return confirmRoom({
+      roomId: booking.bookableItemId,
+      bookingId: booking._id,
+    });
+  }
+
+  const property = await Property.findById(booking.bookableItemId);
+  if (!property) return { confirmed: false, reason: 'property_missing' };
+  if (
+    property.available === false &&
+    ![BookingStatus.CANCELLED, BookingStatus.EXPIRED].includes(booking.status)
+  ) {
+    return { confirmed: true, reason: 'property_reserved' };
+  }
+
+  const claimed = await Property.findOneAndUpdate(
+    { _id: booking.bookableItemId, available: true },
+    { $set: { available: false } },
+    { returnDocument: 'after' },
+  );
+  return claimed
+    ? { confirmed: true, reason: 'property_claimed' }
+    : { confirmed: false, reason: 'property_taken' };
+};
 
 /**
  * Push a booking's hold out by the in-flight grace period because a payment has
@@ -63,9 +93,9 @@ const extendHoldForPayment = async (bookingId) => {
   // Keep the room's hold expiry in step, but only while this booking still
   // holds it. If the hold already lapsed and the sweeper ran, the room may have
   // moved on and must not be dragged back into a held state.
-  if (stillLive) {
+  if (stillLive && isRoomBooking(booking)) {
     await Room.updateOne(
-      { _id: booking.roomId, holdRef: booking._id },
+      { _id: booking.bookableItemId, holdRef: booking._id },
       { $set: { holdExpiresAt: nextExpiry } },
     );
   }
@@ -242,32 +272,20 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
       // The user backed out or the hold lapsed before the money cleared.
       // The room may since have been given to someone else, so we must not
       // confirm blindly - report it for reconciliation and refund instead.
-      const room = await Room.findById(booking.roomId).select(
-        'available holdRef holdExpiresAt',
-      );
-      const roomStillFree =
-        room && room.available === true && !isHoldActive(room);
-
-      if (roomStillFree) {
-        await confirmRoom({
-          roomId: booking.roomId,
-          bookingId: booking._id,
-        });
+      const outcome = await confirmBookedItem(booking);
+      if (outcome.confirmed) {
         booking.status = BookingStatus.CONFIRMED;
         booking.expiresAt = null;
         await booking.save();
         bookingOutcome = {
           confirmed: true,
-          reason: 'hold_lapsed_unclaimed',
+          reason: outcome.reason,
         };
       } else {
-        bookingOutcome = { confirmed: false, reason: 'room_taken' };
+        bookingOutcome = outcome;
       }
     } else {
-      const outcome = await confirmRoom({
-        roomId: booking.roomId,
-        bookingId: booking._id,
-      });
+      const outcome = await confirmBookedItem(booking);
 
       if (outcome.confirmed) {
         booking.status = BookingStatus.CONFIRMED;
@@ -349,10 +367,15 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
         bookingAfterFail.expiresAt = retryWindow;
         await bookingAfterFail.save();
 
-        await Room.updateOne(
-          { _id: bookingAfterFail.roomId, holdRef: bookingAfterFail._id },
-          { $set: { holdExpiresAt: retryWindow } },
-        );
+        if (isRoomBooking(bookingAfterFail)) {
+          await Room.updateOne(
+            {
+              _id: bookingAfterFail.bookableItemId,
+              holdRef: bookingAfterFail._id,
+            },
+            { $set: { holdExpiresAt: retryWindow } },
+          );
+        }
       }
     }
 
@@ -378,13 +401,13 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
       });
 
       const ownerId = await (async () => {
-        const bookingForOwner = await Booking.findById(foundPayment.bookingId);
-        const roomForOwner = bookingForOwner
-          ? await Room.findById(bookingForOwner.roomId)
-          : null;
-        return roomForOwner?.propertyId
-          ? (await Property.findById(roomForOwner.propertyId))?.owner
-          : null;
+        const bookingForOwner = await Booking.findById(foundPayment.bookingId)
+          .populate('bookableItemId');
+        const bookableItem = bookingForOwner?.bookableItemId;
+        return bookableItem?.owner
+          || (bookableItem?.propertyId
+            ? (await Property.findById(bookableItem.propertyId))?.owner
+            : null);
       })();
       if (ownerId) {
         await createNotification({
@@ -513,12 +536,18 @@ export const cancelPayment = asyncHandler(async (req, res, next) => {
       booking.expiresAt = null;
       await booking.save();
 
-      const bookableItem = booking.bookableItemType === 'Property'
+      const isProperty = String(booking.bookableItemType).toLowerCase() === 'property';
+      const bookableItem = isProperty
         ? await Property.findById(booking.bookableItemId)
         : await Room.findById(booking.bookableItemId);
-      if (bookableItem) {
+      if (bookableItem && isProperty) {
         bookableItem.available = true;
         await bookableItem.save();
+      } else if (bookableItem) {
+        roomReleased = await releaseHold({
+          roomId: booking.bookableItemId,
+          bookingId: booking._id,
+        });
       }
 
       // Notify the payer (client) their payment was cancelled/failed.

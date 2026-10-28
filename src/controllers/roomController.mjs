@@ -7,18 +7,29 @@ import {
 } from '../services/holdService.mjs';
 import mongoose from 'mongoose';
 
+const roomToDto = (room) => {
+  const document = room.toObject ? room.toObject() : room;
+  return {
+    ...document,
+    bookingFee: document.bookingFee ?? 0,
+    rentalFee: document.rentalFee ?? 0,
+  };
+};
+
 // get all rooms
 export const getAllRooms = asyncHandler(async (req, res, next) => {
   try {
     const {
       propertyId,
       roomType,
+      minRentalFee,
+      maxRentalFee,
       minPrice,
       maxPrice,
       isAvailable,
       page = 1,
       limit = 10,
-    } = req.query;
+    } = req.validatedData || req.query;
 
     const filter = {};
 
@@ -30,13 +41,15 @@ export const getAllRooms = asyncHandler(async (req, res, next) => {
       filter.type = String(roomType).toUpperCase();
     }
 
-    if (minPrice !== undefined || maxPrice !== undefined) {
-      filter.price = {};
-      if (minPrice !== undefined && minPrice !== '') {
-        filter.price.$gte = Number(minPrice);
+    const minimumRentalFee = minRentalFee ?? minPrice;
+    const maximumRentalFee = maxRentalFee ?? maxPrice;
+    if (minimumRentalFee !== undefined || maximumRentalFee !== undefined) {
+      filter.rentalFee = {};
+      if (minimumRentalFee !== undefined && minimumRentalFee !== '') {
+        filter.rentalFee.$gte = Number(minimumRentalFee);
       }
-      if (maxPrice !== undefined && maxPrice !== '') {
-        filter.price.$lte = Number(maxPrice);
+      if (maximumRentalFee !== undefined && maximumRentalFee !== '') {
+        filter.rentalFee.$lte = Number(maximumRentalFee);
       }
     }
 
@@ -51,7 +64,7 @@ export const getAllRooms = asyncHandler(async (req, res, next) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
-        .populate('propertyId', 'title location price status'),
+        .populate('propertyId', 'title physicalAddress bookingFee rentalFee propertyType'),
       Room.countDocuments(filter),
     ]);
 
@@ -91,7 +104,7 @@ export const getRoomsByProperty = asyncHandler(async (req, res, next) => {
 
     const rooms = await Room.find({ propertyId }).populate(
       'propertyId',
-      'title location price',
+      'title physicalAddress bookingFee rentalFee propertyType',
     );
 
     return sendResponse(
@@ -117,7 +130,7 @@ export const getRoomById = asyncHandler(async (req, res, next) => {
 
     const room = await Room.findById(roomId).populate(
       'propertyId',
-      'title location price agentId landlordId',
+      'title physicalAddress bookingFee rentalFee propertyType',
     );
 
     if (!room) {
@@ -139,7 +152,14 @@ export const getRoomById = asyncHandler(async (req, res, next) => {
 // create a new room under a property
 export const createRoom = asyncHandler(async (req, res, next) => {
   try {
-    const { propertyId, type, price, available } = req.validatedData || req.body;
+    const {
+      propertyId,
+      type,
+      bookingFee,
+      rentalFee,
+      price,
+      available,
+    } = req.validatedData || req.body;
 
     if (!propertyId || !type) {
       return sendResponse(
@@ -163,7 +183,8 @@ export const createRoom = asyncHandler(async (req, res, next) => {
     const room = await Room.create({
       propertyId: new mongoose.Types.ObjectId(propertyId),
       type,
-      price: price ?? 0,
+      bookingFee: bookingFee ?? 0,
+      rentalFee: rentalFee ?? price ?? 0,
       available: available !== undefined ? available : true,
     });
 
@@ -171,7 +192,7 @@ export const createRoom = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Bad request, room not created');
     }
 
-    return sendResponse(res, 201, true, 'Room created successfully', room);
+    return sendResponse(res, 201, true, 'Room created successfully', roomToDto(room));
   } catch (error) {
     next(error);
   }
@@ -186,8 +207,14 @@ export const updateRoom = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Invalid room ID format');
     }
 
-    const { type, price, available } = req.validatedData || req.body;
-    const updates = { type, price, available };
+    const { type, bookingFee, rentalFee, price, available } =
+      req.validatedData || req.body;
+    const updates = {
+      type,
+      bookingFee,
+      rentalFee: rentalFee ?? price,
+      available,
+    };
 
     Object.keys(updates).forEach(
       (key) => updates[key] === undefined && delete updates[key],
@@ -212,7 +239,7 @@ export const updateRoom = asyncHandler(async (req, res, next) => {
       200,
       true,
       'Room updated successfully',
-      updatedRoom,
+      roomToDto(updatedRoom),
     );
   } catch (error) {
     next(error);
@@ -241,7 +268,7 @@ export const toggleRoomAvailability = asyncHandler(async (req, res, next) => {
       200,
       true,
       `Room availability updated to ${room.available}`,
-      room,
+      roomToDto(room),
     );
   } catch (error) {
     next(error);

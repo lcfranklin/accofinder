@@ -115,6 +115,8 @@ export const decorateRoomsWithHold = (rooms, now = new Date()) =>
     const active = isHoldActive(doc, now);
     return {
       ...doc,
+      bookingFee: doc.bookingFee ?? 0,
+      rentalFee: doc.rentalFee ?? 0,
       holdActive: active,
       // True when the hold belongs to nobody we could act on, i.e. it is either
       // free or held by a booking that is no longer live.

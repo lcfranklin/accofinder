@@ -50,6 +50,6 @@ const bookingSchema = new mongoose.Schema(
 // The release sweeper scans hold-subject statuses by expiry. Indexing status
 // and expiresAt together keeps that a single ranged query rather than a scan.
 bookingSchema.index({ status: 1, expiresAt: 1 });
-bookingSchema.index({ roomId: 1, status: 1 });
+bookingSchema.index({ bookableItemId: 1, bookableItemType: 1, status: 1 });
 
 export const Booking = mongoose.model('Booking', bookingSchema);

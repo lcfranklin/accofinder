@@ -213,31 +213,64 @@ export const createBooking = asyncHandler(async (req, res, next) => {
       );
     }
 
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + HOLD_DURATION_MS);
+    const hardExpiresAt = new Date(now.getTime() + HOLD_HARD_CAP_MS);
     const booking = await Booking.create({
       clientId: new mongoose.Types.ObjectId(clientId),
       bookableItemType: resolvedType,
       bookableItemId: new mongoose.Types.ObjectId(bookableItemId),
       bookingDate: bookingDate ? new Date(bookingDate) : new Date(),
-      status: BookingStatus.PENDING,
+      status: BookingStatus.PENDING_PAYMENT,
       amount,
       commissionAmount: commissionAmount || 0,
+      expiresAt,
+      hardExpiresAt,
     });
 
-    // The single atomic step that decides this request's fate. Exactly one
-    // racing request can match this filter, so only one client ever holds.
-    const claimed = await claimHold({ roomId, bookingId, expiresAt });
+    let claimed;
+    if (resolvedType === 'Room') {
+      // The single atomic step that decides this request's fate. Exactly one
+      // racing request can match this filter, so only one client ever holds.
+      claimed = await claimHold({
+        roomId: item._id,
+        bookingId: booking._id,
+        expiresAt,
+      });
+    } else {
+      // Whole-property reservations do not use room hold fields. Claim their
+      // availability atomically so concurrent requests cannot both succeed.
+      claimed = await Property.findOneAndUpdate(
+        { _id: item._id, available: true },
+        { $set: { available: false } },
+        { returnDocument: 'after' },
+      );
+    }
 
     if (!claimed) {
+      booking.status = BookingStatus.CANCELLED;
+      booking.expiresAt = null;
+      await booking.save();
+
+      if (resolvedType === 'Property') {
+        return sendResponse(
+          res,
+          409,
+          false,
+          'This property is currently not available for booking',
+        );
+      }
+
       // Lost the race, or the room was booked while we were reading it. Report
       // the hold state so the app can say "On Hold" rather than a flat error.
-      const current = await Room.findById(roomId).select(
+      const current = await Room.findById(item._id).select(
         'available holdRef holdExpiresAt',
       );
       const heldByOther =
         current &&
         current.available === true &&
         isHoldActive(current) &&
-        current.holdRef?.toString() !== bookingId.toString();
+        current.holdRef?.toString() !== booking._id.toString();
 
       return sendResponse(
         res,
@@ -270,8 +303,10 @@ export const createBooking = asyncHandler(async (req, res, next) => {
       });
     }
 
-    item.available = false;
-    await item.save();
+    if (resolvedType === 'Room') {
+      item.holdRef = booking._id;
+      item.holdExpiresAt = expiresAt;
+    }
 
     const populatedBooking = await Booking.findById(booking._id)
       .populate('clientId', 'firstName lastName email phone')
@@ -406,14 +441,22 @@ export const cancelBooking = asyncHandler(async (req, res, next) => {
     booking.status = BookingStatus.CANCELLED;
     await booking.save();
 
-    // Release the bookable item availability back.
     const normalizedType = normalizeBookableItemType(booking.bookableItemType);
     const bookableItem = normalizedType === 'Property'
       ? await Property.findById(booking.bookableItemId)
       : await Room.findById(booking.bookableItemId);
-    if (bookableItem) {
-      bookableItem.available = true;
-      await bookableItem.save();
+    let roomReleased = false;
+    if (bookableItem && wasLiveHold && !wasConfirmed) {
+      if (normalizedType === 'Room') {
+        roomReleased = await releaseHold({
+          roomId: booking.bookableItemId,
+          bookingId: booking._id,
+        });
+      } else {
+        bookableItem.available = true;
+        await bookableItem.save();
+        roomReleased = true;
+      }
     }
 
     // Notify the client that their booking was cancelled (and the owner).
@@ -496,19 +539,36 @@ export const confirmBooking = asyncHandler(async (req, res, next) => {
       );
     }
 
-    // Take the room off the market atomically, but only if we still hold it.
-    const outcome = await confirmRoom({
-      roomId: booking.roomId,
-      bookingId: booking._id,
-    });
+    const normalizedType = normalizeBookableItemType(booking.bookableItemType);
+    let outcome;
+    if (normalizedType === 'Property') {
+      const property = await Property.findOneAndUpdate(
+        { _id: booking.bookableItemId, available: true },
+        { $set: { available: false } },
+        { returnDocument: 'after' },
+      );
+      const existingReservation = property
+        ? null
+        : await Property.findById(booking.bookableItemId).select('available');
+      outcome = property
+        ? { confirmed: true, reason: 'property_claimed' }
+        : existingReservation?.available === false
+          ? { confirmed: true, reason: 'property_reserved' }
+          : { confirmed: false, reason: 'property_missing' };
+    } else {
+      outcome = await confirmRoom({
+        roomId: booking.bookableItemId,
+        bookingId: booking._id,
+      });
+    }
 
     if (!outcome.confirmed) {
       return sendResponse(
         res,
         409,
         false,
-        outcome.reason === 'room_missing'
-          ? 'The room for this booking no longer exists.'
+        ['room_missing', 'property_missing'].includes(outcome.reason)
+          ? 'The bookable item for this booking no longer exists.'
           : 'This booking no longer holds the room, so it cannot be confirmed. Another booking now holds it - resolve this manually.',
         withId(booking),
         { roomConfirmed: false, reason: outcome.reason },
@@ -532,8 +592,8 @@ export const confirmBooking = asyncHandler(async (req, res, next) => {
         bookingId: booking._id,
       });
     }
-    const normalizedType = normalizeBookableItemType(booking.bookableItemType);
-    const ownerItem = normalizedType === 'Property'
+    const ownerItemType = normalizeBookableItemType(booking.bookableItemType);
+    const ownerItem = ownerItemType === 'Property'
       ? await Property.findById(booking.bookableItemId)
       : await Room.findById(booking.bookableItemId);
     const ownerId = await ownerOfBookableItem(ownerItem);
@@ -600,21 +660,19 @@ export const releaseBooking = asyncHandler(async (req, res, next) => {
       );
     }
 
-    const room = await Room.findById(booking.roomId);
-    if (!room) {
-      return sendResponse(
-        res,
-        404,
-        false,
-        'The room for this booking no longer exists.',
-      );
+    const normalizedType = normalizeBookableItemType(booking.bookableItemType);
+    const item = normalizedType === 'Property'
+      ? await Property.findById(booking.bookableItemId)
+      : await Room.findById(booking.bookableItemId);
+    if (!item) {
+      return sendResponse(res, 404, false, 'The bookable item for this booking no longer exists.');
     }
 
     // Authorisation: an admin can always release; an agent/landlord only for a
     // property they own.
     const role = String(req.user?.role || '').toUpperCase();
     if (role !== 'ADMIN') {
-      const ownerId = await ownerOfRoom(room);
+      const ownerId = await ownerOfBookableItem(item);
       const requesterId = req.user?.id || req.user?.sub || req.user?._id;
       if (!ownerId || String(ownerId) !== String(requesterId)) {
         return sendResponse(
@@ -635,10 +693,18 @@ export const releaseBooking = asyncHandler(async (req, res, next) => {
 
     // Return the room to the market and clear any leftover hold so it is
     // immediately bookable again.
-    const reopened = await Room.updateOne(
-      { _id: booking.roomId },
-      { $set: { available: true, holdRef: null, holdExpiresAt: null } },
-    );
+    let roomReleased = false;
+    if (normalizedType === 'Property') {
+      item.available = true;
+      await item.save();
+      roomReleased = true;
+    } else {
+      const reopened = await Room.updateOne(
+        { _id: booking.bookableItemId },
+        { $set: { available: true, holdRef: null, holdExpiresAt: null } },
+      );
+      roomReleased = reopened.modifiedCount === 1;
+    }
 
     if (booking.clientId) {
       await createNotification({
@@ -657,9 +723,9 @@ export const releaseBooking = asyncHandler(async (req, res, next) => {
       res,
       200,
       true,
-      'Booking released. The room is available again.',
+      'Booking released. The bookable item is available again.',
       withId(booking),
-      { roomReleased: reopened.modifiedCount === 1 },
+      { roomReleased },
     );
   } catch (error) {
     next(error);
@@ -708,6 +774,18 @@ export const deleteBooking = asyncHandler(async (req, res, next) => {
           : BookingStatus.CANCELLED;
       booking.expiredAt = booking.expiredAt || new Date();
       await booking.save();
+      const normalizedType = normalizeBookableItemType(booking.bookableItemType);
+      if (normalizedType === 'Room') {
+        await releaseHold({
+          roomId: booking.bookableItemId,
+          bookingId: booking._id,
+        });
+      } else if (normalizedType === 'Property') {
+        await Property.updateOne(
+          { _id: booking.bookableItemId, available: false },
+          { $set: { available: true } },
+        );
+      }
       return sendResponse(
         res,
         200,
@@ -716,16 +794,6 @@ export const deleteBooking = asyncHandler(async (req, res, next) => {
         withId(booking),
         { deleted: false },
       );
-    }
-
-    // Release the bookable item back if the booking was active.
-    const normalizedType = normalizeBookableItemType(booking.bookableItemType);
-    const item = normalizedType === 'Property'
-      ? await Property.findById(booking.bookableItemId)
-      : await Room.findById(booking.bookableItemId);
-    if (item) {
-      item.available = true;
-      await item.save();
     }
 
     await Booking.findByIdAndDelete(bookingId);

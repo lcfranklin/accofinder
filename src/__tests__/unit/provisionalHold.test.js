@@ -3,6 +3,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import { Room } from '../../models/Room.mjs';
 import { Booking } from '../../models/Booking.mjs';
+import { Property } from '../../models/Property.mjs';
 import { BookingStatus } from '../../models/enums/BookingStatus.mjs';
 import {
   claimHold,
@@ -30,7 +31,7 @@ const makeRoom = async (overrides = {}) => {
   const room = await Room.create({
     propertyId,
     type: 'SINGLE',
-    price: 50000,
+    rentalFee: 50000,
     available: true,
     ...overrides,
   });
@@ -41,7 +42,8 @@ const makeBooking = async (room, overrides = {}) => {
   const now = Date.now();
   const booking = await Booking.create({
     clientId,
-    roomId: room._id,
+    bookableItemType: 'Room',
+    bookableItemId: room._id,
     amount: 50000,
     status: BookingStatus.PENDING_PAYMENT,
     expiresAt: new Date(now + 20 * 60 * 1000),
@@ -71,7 +73,11 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([Room.deleteMany({}), Booking.deleteMany({})]);
+  await Promise.all([
+    Room.deleteMany({}),
+    Booking.deleteMany({}),
+    Property.deleteMany({}),
+  ]);
 });
 
 describe('hold predicates', () => {
@@ -307,6 +313,33 @@ describe('confirmRoom', () => {
 });
 
 describe('releaseExpiredHolds', () => {
+  it('releases an expired whole-property reservation', async () => {
+    const property = await Property.create({
+      title: 'Expiring whole property',
+      owner: ownerId,
+    });
+    property.available = false;
+    await property.save();
+    const booking = await Booking.create({
+      clientId,
+      bookableItemType: 'Property',
+      bookableItemId: property._id,
+      amount: 50000,
+      status: BookingStatus.PENDING_PAYMENT,
+      expiresAt: new Date(Date.now() - 1000),
+      hardExpiresAt: new Date(Date.now() + 60_000),
+    });
+
+    const stats = await releaseExpiredHolds({ notify: false });
+
+    expect(stats.expired).toBe(1);
+    expect(stats.roomsReleased).toBe(1);
+    expect((await Booking.findById(booking._id)).status).toBe(
+      BookingStatus.EXPIRED,
+    );
+    expect((await Property.findById(property._id)).available).toBe(true);
+  });
+
   it('expires a lapsed hold and frees the room', async () => {
     const room = await makeRoom();
     const booking = await makeBooking(room, {

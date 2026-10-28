@@ -12,12 +12,37 @@ import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
 import { createNotification } from '../services/notificationService.mjs';
 import mongoose from 'mongoose';
 
+const propertyToDto = (property) => {
+  const document = property.toObject ? property.toObject() : property;
+  return {
+    ...document,
+    bookingFee: document.bookingFee ?? 0,
+    rentalFee: document.rentalFee ?? 0,
+  };
+};
+
+const roomToDto = (room) => {
+  const document = room.toObject ? room.toObject() : room;
+  return {
+    ...document,
+    bookingFee: document.bookingFee ?? 0,
+    rentalFee: document.rentalFee ?? 0,
+  };
+};
+
+const sendDuplicateProperty = (res) =>
+  res.status(409).json({
+    error: 'Duplicate property',
+    message: 'This agent already has a property at this district and village address.',
+  });
+
 export const createProperty = asyncHandler(async (req, res, next) => {
   try {
     const {
       title,
       description,
-      price,
+      bookingFee,
+      rentalFee,
       propertyType,
       physicalAddress,
       verificationStatus,
@@ -33,10 +58,20 @@ export const createProperty = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 401, false, 'Unauthorized: could not resolve agent from token');
     }
 
+    if (physicalAddress?.district && physicalAddress?.village) {
+      const duplicate = await Property.findOne({
+        owner,
+        'physicalAddress.district': physicalAddress.district,
+        'physicalAddress.village': physicalAddress.village,
+      }).select('_id');
+      if (duplicate) return sendDuplicateProperty(res);
+    }
+
     const property = await Property.create({
       title,
       description,
-      price: price ?? 0,
+      bookingFee: bookingFee ?? 0,
+      rentalFee: rentalFee ?? 0,
       propertyType,
       physicalAddress,
       verificationStatus: verificationStatus ?? 'PENDING',
@@ -54,10 +89,11 @@ export const createProperty = asyncHandler(async (req, res, next) => {
     // Create inline rooms atomically
     let createdRooms = [];
     if (rooms.length > 0) {
-const roomDocs = rooms.map((r) => ({
+      const roomDocs = rooms.map((r) => ({
         propertyId: property._id,
         type: String(r.type || '').toUpperCase(),
-        price: r.price || 0,
+        bookingFee: r.bookingFee ?? 0,
+        rentalFee: r.rentalFee ?? r.price ?? 0,
         available: r.available !== undefined ? r.available : true,
       }));
       createdRooms = await Room.insertMany(roomDocs, { ordered: true });
@@ -77,10 +113,11 @@ const roomDocs = rooms.map((r) => ({
     }
 
     return sendResponse(res, 201, true, 'Property created successfully', {
-      ...property.toObject(),
-      rooms: createdRooms,
+      ...propertyToDto(property),
+      rooms: createdRooms.map(roomToDto),
     });
   } catch (error) {
+    if (error.code === 11000) return sendDuplicateProperty(res);
     next(error);
   }
 });
@@ -97,7 +134,8 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       media,
       title,
       description,
-      price,
+      bookingFee,
+      rentalFee,
       propertyType,
       physicalAddress,
       verificationStatus,
@@ -113,7 +151,8 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
     const setUpdates = {};
     if (title !== undefined) setUpdates.title = title;
     if (description !== undefined) setUpdates.description = description;
-    if (price !== undefined) setUpdates.price = price;
+    if (bookingFee !== undefined) setUpdates.bookingFee = bookingFee;
+    if (rentalFee !== undefined) setUpdates.rentalFee = rentalFee;
     if (propertyType !== undefined) setUpdates.propertyType = propertyType;
     if (physicalAddress !== undefined) setUpdates.physicalAddress = physicalAddress;
     if (verificationStatus !== undefined) setUpdates.verificationStatus = verificationStatus;
@@ -208,7 +247,13 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       }
     }
 
-    return sendResponse(res, 200, true, 'Property updated successfully', updatedProperty);
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Property updated successfully',
+      propertyToDto(updatedProperty),
+    );
   } catch (error) {
     next(error);
   }
@@ -281,7 +326,7 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
     ]);
 
     return sendResponse(res, 200, true, 'Properties retrieved successfully', {
-      properties,
+      properties: properties.map(propertyToDto),
       pagination: {
         total,
         page: Number(page),
@@ -315,8 +360,8 @@ export const getPropertyById = asyncHandler(async (req, res, next) => {
     }
 
     return sendResponse(res, 200, true, 'Property found', {
-      ...property.toObject(),
-      rooms,
+      ...propertyToDto(property),
+      rooms: rooms.map(roomToDto),
     });
   } catch (error) {
     next(error);

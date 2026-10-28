@@ -4,7 +4,18 @@ import { PropertyType } from '../models/enums/PropertyType.mjs';
 export const updatePropertySchema = Joi.object({
   title: Joi.string().trim().min(3).max(100).optional(),
   description: Joi.string().trim().min(10).max(2000).optional(),
-  price: Joi.number().min(0).optional(),
+  bookingFee: Joi.number().min(0).precision(2).optional().messages({
+    'number.base': 'bookingFee must be a number greater than or equal to 0',
+    'number.min': 'bookingFee must be a number greater than or equal to 0',
+    'number.infinity': 'bookingFee must be a number greater than or equal to 0',
+    'number.precision': 'bookingFee must have at most 2 decimal places',
+  }),
+  rentalFee: Joi.number().min(0).precision(2).optional().messages({
+    'number.base': 'rentalFee must be a number greater than or equal to 0',
+    'number.min': 'rentalFee must be a number greater than or equal to 0',
+    'number.infinity': 'rentalFee must be a number greater than or equal to 0',
+    'number.precision': 'rentalFee must have at most 2 decimal places',
+  }),
 
   propertyType: Joi.string()
     .valid(...Object.values(PropertyType))

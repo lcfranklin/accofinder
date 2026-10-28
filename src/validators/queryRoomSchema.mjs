@@ -7,6 +7,8 @@ export const queryRoomSchema = Joi.object({
     .valid(...Object.values(RoomType))
     .insensitive()
     .optional(),
+  minRentalFee: Joi.number().min(0).optional(),
+  maxRentalFee: Joi.number().min(0).optional(),
   minPrice: Joi.number().min(0).optional(),
   maxPrice: Joi.number().min(0).optional(),
   isAvailable: Joi.boolean().optional(),

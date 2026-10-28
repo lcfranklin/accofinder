@@ -1,90 +1,115 @@
-import request from "supertest";
-import app from "../../app.mjs";
-import House from "../../models/House.mjs";
+import request from 'supertest';
+import app from '../../app.mjs';
+import { Property } from '../../models/Property.mjs';
+import { Room } from '../../models/Room.mjs';
 
-jest.mock("../../models/House.mjs");
+const agentId = '6a057ca99d9d0fbeb233073d';
 
-jest.mock("../../middleware/authMiddleware.mjs", () => ({
-  isAuthenticated: jest.fn((req, res, next) => {
-    req.user = { _id: "6a057ca99d9d0fbeb233073d", role: "ADMIN" };
+jest.mock('../../middleware/authMiddleware.mjs', () => ({
+  isAuthenticated: (req, res, next) => {
+    req.user = { _id: '6a057ca99d9d0fbeb233073d', role: 'ADMIN' };
     next();
-  }),
+  },
   checkRole: () => (req, res, next) => next(),
 }));
 
-
-describe("House Listing API", () => {
-
-  afterEach(() => {
-    jest.clearAllMocks();
+describe('Property listing API', () => {
+  beforeAll(async () => {
+    await Property.init();
+    await Room.init();
   });
 
-  describe("GET /api/house-listing", () => {
+  beforeEach(async () => {
+    await Property.deleteMany({});
+    await Room.deleteMany({});
+  });
 
-    it("should return all houses", async () => {
-      const mockHouses = [
-        { _id: "1", title: "House 1" },
-        { _id: "2", title: "House 2" }
-      ];
-
-      House.find.mockReturnValue({
-        populate: jest.fn().mockResolvedValue(mockHouses)
+  it('creates property fees and inline room fees that round-trip through list and detail', async () => {
+    const response = await request(app)
+      .post('/api/house-listing')
+      .send({
+        title: 'Fee round-trip house',
+        description: 'A property with room and monthly fee round-trip coverage.',
+        propertyType: 'HOSTEL',
+        verificationStatus: 'VERIFIED',
+        bookingFee: 1500,
+        rentalFee: 48000,
+        physicalAddress: { district: 'Dedza', village: 'Bembeke' },
+        rooms: [{ type: 'SINGLE', bookingFee: 500, rentalFee: 22000 }],
       });
 
-      const res = await request(app).get("/api/house-listing");
+    expect(response.statusCode).toBe(201);
+    expect(response.body.data.bookingFee).toBe(1500);
+    expect(response.body.data.rentalFee).toBe(48000);
+    expect(response.body.data.rooms[0].bookingFee).toBe(500);
+    expect(response.body.data.rooms[0].rentalFee).toBe(22000);
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body.status).toBe("success");
-      expect(res.body.data).toEqual(mockHouses);
-    });
+    const propertyId = response.body.data._id;
+    const listResponse = await request(app)
+      .get('/api/house-listing')
+      .query({ owner: agentId });
+    const listedProperty = listResponse.body.data.properties.find(
+      (property) => property._id === propertyId,
+    );
+    expect(listedProperty.bookingFee).toBe(1500);
+    expect(listedProperty.rentalFee).toBe(48000);
 
-    it("should handle errors", async () => {
-      House.find.mockImplementation(() => {
-        throw new Error("DB Error");
-      });
-
-      const res = await request(app).get("/api/house-listing");
-
-      expect(res.statusCode).toBe(500);
-      expect(res.body).toHaveProperty("message", "DB Error");
-    });
+    const detailResponse = await request(app).get(`/api/house-listing/${propertyId}`);
+    expect(detailResponse.statusCode).toBe(200);
+    expect(detailResponse.body.data.bookingFee).toBe(1500);
+    expect(detailResponse.body.data.rentalFee).toBe(48000);
+    expect(detailResponse.body.data.rooms[0].bookingFee).toBe(500);
+    expect(detailResponse.body.data.rooms[0].rentalFee).toBe(22000);
   });
 
-  describe("POST /api/house-listing", () => {
-
-    it("should create a new house", async () => {
-      const newHouse = { 
-        title: "New House",
-        price: 1000,
-        costCategory: "Medium_Cost"
-      };
-
-      House.mockImplementation(() => ({
-        save: jest.fn().mockResolvedValue(newHouse)
-      }));
-
-      const res = await request(app)
-        .post("/api/house-listing")
-        .send(newHouse);
-
-      expect(res.statusCode).toBe(201);
-      expect(res.body.status).toBe("success");
-      expect(res.body.data).toEqual(newHouse);
+  it('persists updated property fees on a later fetch', async () => {
+    const property = await Property.create({
+      title: 'Property update fees',
+      description: 'A property used to verify updated monetary fields.',
+      owner: agentId,
     });
 
-    it("should handle validation errors", async () => {
-      House.mockImplementation(() => ({
-        save: jest.fn().mockRejectedValue(new Error("Validation failed"))
-      }));
+    const updateResponse = await request(app)
+      .put(`/api/house-listing/${property._id}`)
+      .send({ bookingFee: 2750, rentalFee: 51500 });
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updateResponse.body.data.bookingFee).toBe(2750);
+    expect(updateResponse.body.data.rentalFee).toBe(51500);
 
-      const res = await request(app)
-        .post("/api/house-listing")
-        .send({});
-
-      expect(res.statusCode).toBe(400);
-      expect(res.body).toHaveProperty("message", "Validation failed");
-    });
-
+    const detailResponse = await request(app).get(`/api/house-listing/${property._id}`);
+    expect(detailResponse.body.data.bookingFee).toBe(2750);
+    expect(detailResponse.body.data.rentalFee).toBe(51500);
   });
 
+  it('rejects duplicate owner and district/village listings, including concurrent creates', async () => {
+    const payload = {
+      description: 'A property used to verify duplicate address protection.',
+      physicalAddress: { district: 'Mchinji', village: 'Kapiri' },
+      rooms: [{ type: 'SINGLE', rentalFee: 20000 }],
+    };
+    const first = await request(app)
+      .post('/api/house-listing')
+      .send({ ...payload, title: 'First listing' });
+    const second = await request(app)
+      .post('/api/house-listing')
+      .send({ ...payload, title: 'Second listing' });
+
+    expect(first.statusCode).toBe(201);
+    expect(second.statusCode).toBe(409);
+    expect(second.body.error).toBe('Duplicate property');
+    expect(await Room.countDocuments({})).toBe(1);
+
+    await Property.deleteMany({});
+    await Room.deleteMany({});
+    const concurrent = await Promise.all([
+      request(app)
+        .post('/api/house-listing')
+        .send({ ...payload, title: 'Concurrent listing one' }),
+      request(app)
+        .post('/api/house-listing')
+        .send({ ...payload, title: 'Concurrent listing two' }),
+    ]);
+
+    expect(concurrent.map((result) => result.statusCode).sort()).toEqual([201, 409]);
+  });
 });

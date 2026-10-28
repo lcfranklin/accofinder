@@ -175,6 +175,14 @@ Verification `status` uses the app's int encoding on the wire: `0` = Approved, `
 
 *`LANDLORD` is reserved in the guards but not yet assignable — effectively `AGENT`/`ADMIN`.
 
+Property monetary fields are `bookingFee` and `rentalFee`; **`rentalFee` is the recurring monthly price**. A property does not have a `price` field.
+
+Property creation rejects a duplicate with HTTP `409 Conflict` when the same
+owner (the agent ID stored in `owner`) already has a listing at the same
+`physicalAddress.district` and `physicalAddress.village`. The database enforces
+this composite key as well as the API pre-check; listings without both address
+parts are excluded from the uniqueness constraint.
+
 ### Rooms (`/api/rooms`)
 
 | Method | Endpoint | Description | Auth Required | Roles |
@@ -186,7 +194,7 @@ Verification `status` uses the app's int encoding on the wire: `0` = Approved, `
 | PUT | `/:id` | Update room details | Yes | LANDLORD*, AGENT, ADMIN |
 | DELETE | `/:id` | Delete room | Yes | LANDLORD*, AGENT, ADMIN |
 
-`GET /api/rooms/` query filters: `propertyId`, `roomType` (`SINGLE`/`DOUBLE`/`TRIPLE`, case-insensitive), `minPrice`, `maxPrice`, `isAvailable`, `page` (default 1), `limit` (default 10).
+`GET /api/rooms/` query filters: `propertyId`, `roomType` (`SINGLE`/`DOUBLE`/`TRIPLE`, case-insensitive), `minRentalFee`, `maxRentalFee`, `isAvailable`, `page` (default 1), `limit` (default 10). Legacy `minPrice`/`maxPrice` filters remain aliases for the rental-fee bounds.
 
 ### Bookings (`/api/bookings`)
 
@@ -246,6 +254,31 @@ Verification `status` uses the app's int encoding on the wire: `0` = Approved, `
 
 ## Request payloads
 
+### Create a property
+
+```json
+{
+  "title": "Bembeke hostel",
+  "description": "A property with rooms available for monthly rental.",
+  "propertyType": "HOSTEL",
+  "bookingFee": 5000,
+  "rentalFee": 45000,
+  "physicalAddress": {
+    "district": "Dedza",
+    "village": "Bembeke"
+  },
+  "rooms": [
+    { "type": "SINGLE", "bookingFee": 2000, "rentalFee": 25000 },
+    { "type": "DOUBLE", "bookingFee": 2000, "rentalFee": 40000 }
+  ]
+}
+```
+
+`bookingFee` and `rentalFee` are non-negative numbers and default to `0`.
+Inline rooms also use `bookingFee` and `rentalFee`, both defaulting to `0`.
+For backward compatibility, a legacy inline-room `price` maps to `rentalFee`
+when `rentalFee` is omitted.
+
 ### Create a booking
 
 ```json
@@ -269,10 +302,21 @@ properties; booking and cancellation continue to update availability.
 {
   "propertyId": "<24-hex property id>",  // required
   "type": "SINGLE",                      // required; normalized to upper-case (SINGLE/DOUBLE/TRIPLE)
-  "price": 45000,                        // optional, default 0
+  "bookingFee": 2000,                    // optional, non-negative, default 0
+  "rentalFee": 45000,                    // optional, monthly price, default 0
   "available": true                      // optional, default true
 }
 ```
+
+The Qt client may also send `id`, `holdActive`, or `holdExpiresAt` with this
+request. Unknown keys are stripped; the server does not accept a client-supplied
+room ID or hold state. For compatibility with older Qt clients, a legacy
+`price` request value is used as `rentalFee` only when `rentalFee` is omitted;
+Room records and responses have no `price` field.
+
+Property and room updates accept `bookingFee` and `rentalFee`. Invalid or
+negative monetary values are rejected with HTTP `400` and an error identifying
+the field.
 
 ### Process a mobile money payment
 

@@ -19,7 +19,10 @@
 
 export const validateRequest = (schema, source = 'body') => {
 return (req, res, next) => {
-    const { error, value } = schema.validate(req[source] ?? {}, { abortEarly: false });
+    const { error, value } = schema.validate(req[source] ?? {}, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
 
     if (error) {
       return res.status(400).json({
@@ -30,6 +33,7 @@ return (req, res, next) => {
     }
     // Attach validated data to request object for use in controller
     req.validatedData = value;
+    if (source === 'body') req.body = value;
     next();
   };
 }
