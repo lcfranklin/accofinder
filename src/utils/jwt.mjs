@@ -35,7 +35,7 @@ export const generateRefreshToken = (user) => {
       jti: uuidv4(),
     },
     JWT_REFRESH_SECRET,
-    { expiresIn: JWT_REFRESH_EXPIRATION || "1d", algorithm: "HS256" }
+    { expiresIn: JWT_REFRESH_EXPIRATION || "30d", algorithm: "HS256" }
   );
 };
 
