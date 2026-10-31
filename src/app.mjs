@@ -14,6 +14,7 @@ import notificationRoutes from './routes/notificationRoutes.mjs';
 import disputeRoutes from './routes/disputeRoutes.mjs';
 import paymentRoutes from './routes/paymentRoutes.mjs';
 import authRoutes from './routes/authRoutes.mjs';
+import reviewRoutes from './routes/reviewRoutes.mjs';
 
 import uploadRoutes from './routes/uploadRoutes.mjs';
 import { notFound, errorHandler } from './middleware/errorMiddleware.mjs';
@@ -149,6 +150,7 @@ app.use('/api/property', verificationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 app.use('/api/dashboard', dashboardRoutes);
 

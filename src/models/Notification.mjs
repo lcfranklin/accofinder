@@ -33,6 +33,7 @@ const notificationSchema = new mongoose.Schema(
     title: { type: String, default: '' },
     message: { type: String, required: true },
     announcement: { type: Boolean, default: false },
+    announcementId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
     bookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
     isRead: { type: Boolean, default: false },
   },

@@ -59,8 +59,14 @@ export const announce = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'message is required');
     }
 
-    const notifications = await broadcastAnnouncement({
-      audience,
+    const validAudiences = ['ALL', 'ADMIN', 'CLIENT', 'AGENT'];
+    const aud = audience || 'ALL';
+    if (!validAudiences.includes(aud)) {
+      return sendResponse(res, 400, false, 'Invalid audience');
+    }
+
+    const result = await broadcastAnnouncement({
+      audience: aud,
       title,
       message,
       senderId,
@@ -70,8 +76,8 @@ export const announce = asyncHandler(async (req, res, next) => {
       res,
       201,
       true,
-      `Announcement sent to ${notifications.length} user(s)`,
-      { count: notifications.length },
+      `Announcement sent to ${result.count} user(s)`,
+      { announcementId: result.announcementId, count: result.count },
     );
   } catch (error) {
     next(error);
@@ -81,18 +87,54 @@ export const announce = asyncHandler(async (req, res, next) => {
 //  history of announcements (persisted across recipients, de-duplicated by title+time)
 export const getAnnouncementHistory = asyncHandler(async (req, res, next) => {
   try {
-    const notices = await Notification.find({ announcement: true })
+    // Aggregate persisted per-recipient notifications into one row per send.
+    const rows = await Notification.aggregate([
+      { $match: { announcement: true, announcementId: { $ne: null } } },
+      {
+        $group: {
+          _id: '$announcementId',
+          title: { $first: '$title' },
+          message: { $first: '$message' },
+          audience: { $first: '$recipientRole' },
+          recipientCount: { $sum: 1 },
+          createdAt: { $first: '$createdAt' },
+          senderId: { $first: '$senderId' },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $limit: 100 },
+    ]);
+
+    // For announcements without announcementId (legacy), fall back to title+createdAt grouping is skipped;
+    // include them as individual rows.
+    const legacy = await Notification.find({ announcement: true, announcementId: null })
       .populate('senderId', 'firstName surname email')
       .sort({ createdAt: -1 })
       .limit(100);
 
-    return sendResponse(
-      res,
-      200,
-      true,
-      'Announcement history retrieved',
-      notices,
-    );
+    const history = rows.map((r) => ({
+      announcementId: r._id,
+      title: r.title,
+      message: r.message,
+      recipientCount: r.recipientCount,
+      createdAt: r.createdAt,
+      senderId: r.senderId,
+    }));
+
+    for (const n of legacy) {
+      history.push({
+        announcementId: n._id,
+        title: n.title,
+        message: n.message,
+        recipientCount: 1,
+        createdAt: n.createdAt,
+        senderId: n.senderId,
+      });
+    }
+
+    history.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return sendResponse(res, 200, true, 'Announcement history retrieved', history.slice(0, 100));
   } catch (error) {
     next(error);
   }
@@ -210,6 +252,12 @@ export const getNotificationById = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, 'Notification not found');
     }
 
+    const userId = String(getCurrentUserId(req));
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (String(notification.recipientId) !== userId && !isAdmin) {
+      return sendResponse(res, 404, false, 'Notification not found');
+    }
+
     return sendResponse(res, 200, true, 'Notification found', notification);
   } catch (error) {
     next(error);
@@ -223,6 +271,16 @@ export const markNotificationAsRead = asyncHandler(async (req, res, next) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return sendResponse(res, 400, false, 'Invalid notification ID format');
+    }
+
+    const existing = await Notification.findById(id);
+    if (!existing) {
+      return sendResponse(res, 404, false, 'Notification not found');
+    }
+    const userId = String(getCurrentUserId(req));
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (String(existing.recipientId) !== userId && !isAdmin) {
+      return sendResponse(res, 404, false, 'Notification not found');
     }
 
     const notification = await Notification.findByIdAndUpdate(
@@ -252,11 +310,14 @@ export const markAllNotificationsAsRead = asyncHandler(
   async (req, res, next) => {
     try {
       const userId = getCurrentUserId(req);
+      const { role } = req.query || {};
 
-      await Notification.updateMany(
-        { recipientId: userId, isRead: false },
-        { $set: { isRead: true } },
-      );
+      const filter = { recipientId: userId, isRead: false };
+      if (role && ['ADMIN', 'AGENT', 'CLIENT'].includes(String(role).toUpperCase())) {
+        filter.recipientRole = String(role).toUpperCase();
+      }
+
+      await Notification.updateMany(filter, { $set: { isRead: true } });
 
       return sendResponse(res, 200, true, 'All notifications marked as read');
     } catch (error) {
@@ -272,6 +333,16 @@ export const deleteNotification = asyncHandler(async (req, res, next) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return sendResponse(res, 400, false, 'Invalid notification ID format');
+    }
+
+    const existing = await Notification.findById(id);
+    if (!existing) {
+      return sendResponse(res, 404, false, 'Notification not found');
+    }
+    const userId = String(getCurrentUserId(req));
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (String(existing.recipientId) !== userId && !isAdmin) {
+      return sendResponse(res, 404, false, 'Notification not found');
     }
 
     const notification = await Notification.findByIdAndDelete(id);

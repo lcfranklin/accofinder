@@ -6,7 +6,7 @@ import { User } from '../models/User.mjs';
 import { UserRole } from '../models/enums/UserRole.mjs';
 import { DisputeStatus } from '../models/enums/DisputeStatus.mjs';
 import { createNotification } from '../services/notificationService.mjs';
-import { asyncHandler, sendResponse } from '../utils/helpers.mjs';
+import { asyncHandler, sendResponse, withId, withIdList } from '../utils/helpers.mjs';
 import mongoose from 'mongoose';
 
 const propertyForBooking = async (booking) => {
@@ -43,9 +43,23 @@ export const raiseDispute = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, 'Associated booking not found');
     }
 
+    // Authorization: only the booking client or an admin can raise a dispute
+    const userId = String(req.user._id || req.user.id || req.user.sub);
+    const bookingClientId = String(booking.clientId || '');
+    const isAdmin = String(req.user.role || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin && bookingClientId && bookingClientId !== userId) {
+      return sendResponse(res, 403, false, 'You can only raise disputes on your own bookings');
+    }
+
+    // Prevent duplicate open disputes for the same booking
+    const existing = await Dispute.findOne({ bookingId, status: { $in: [DisputeStatus.OPEN] } });
+    if (existing) {
+      return sendResponse(res, 409, false, 'An open dispute already exists for this booking');
+    }
+
     const dispute = await Dispute.create({
       bookingId: new mongoose.Types.ObjectId(bookingId),
-      raisedBy: new mongoose.Types.ObjectId(raisedBy),
+      raisedBy: new mongoose.Types.ObjectId(userId),
       issue,
       status: DisputeStatus.OPEN,
     });
@@ -89,7 +103,7 @@ export const raiseDispute = asyncHandler(async (req, res, next) => {
       201,
       true,
       'Dispute raised successfully',
-      populatedDispute,
+      withId(populatedDispute),
     );
   } catch (error) {
     next(error);
@@ -102,56 +116,61 @@ export const raiseDispute = asyncHandler(async (req, res, next) => {
 //  raised on bookings for rooms or whole properties the agent owns.
 export const getAllDisputes = asyncHandler(async (req, res, next) => {
   try {
+    const page = Math.max(1, Number(req.validatedData?.page || req.query?.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(req.validatedData?.limit || req.query?.limit || 10)));
+    const statusFilter = req.validatedData?.status || req.query?.status;
+    const bookingFilter = req.validatedData?.bookingId || req.query?.bookingId;
+
     const role = String(req.user?.role || '').toUpperCase();
-    let filter = {};
+    const filter = {};
 
     if (role !== 'ADMIN') {
-      const ownedProps = await Property.find({ owner: req.user._id }).select('_id');
-      const ownedPropIds = ownedProps.map((p) => p._id);
-      const ownedRooms = await Room.find({
-        propertyId: { $in: ownedPropIds },
-      }).select('_id');
-      const ownedRoomIds = ownedRooms.map((r) => r._id);
-      if (ownedRoomIds.length === 0 && ownedPropIds.length === 0) {
-        return sendResponse(res, 200, true, 'Disputes retrieved successfully', []);
+      // CLIENT: only their own disputes
+      if (role === 'CLIENT') {
+        filter.raisedBy = req.user._id;
+      } else {
+        // AGENT: disputes on their properties
+        const ownedProps = await Property.find({ owner: req.user._id }).select('_id');
+        const ownedPropIds = ownedProps.map((p) => p._id);
+        const ownedRooms = await Room.find({ propertyId: { $in: ownedPropIds } }).select('_id');
+        const ownedRoomIds = ownedRooms.map((r) => r._id);
+        if (ownedRoomIds.length === 0 && ownedPropIds.length === 0) {
+          return sendResponse(res, 200, true, 'Disputes retrieved successfully', [], { page, limit, total: 0 });
+        }
+        const ownedBookings = await Booking.find({
+          $or: [
+            { bookableItemType: 'Room', bookableItemId: { $in: ownedRoomIds } },
+            { bookableItemType: 'Property', bookableItemId: { $in: ownedPropIds } },
+          ],
+        }).select('_id');
+        const ownedBookingIds = ownedBookings.map((b) => b._id);
+        if (ownedBookingIds.length === 0) {
+          return sendResponse(res, 200, true, 'Disputes retrieved successfully', [], { page, limit, total: 0 });
+        }
+        filter.bookingId = { $in: ownedBookingIds };
       }
-      const ownedBookings = await Booking.find({
-        $or: [
-          {
-            bookableItemType: 'Room',
-            bookableItemId: { $in: ownedRoomIds },
-          },
-          {
-            bookableItemType: 'Property',
-            bookableItemId: { $in: ownedPropIds },
-          },
-        ],
-      }).select('_id');
-      const ownedBookingIds = ownedBookings.map((b) => b._id);
-      if (ownedBookingIds.length === 0) {
-        return sendResponse(res, 200, true, 'Disputes retrieved successfully', []);
-      }
-      filter.bookingId = { $in: ownedBookingIds };
     }
 
+    if (statusFilter) filter.status = statusFilter;
+    if (bookingFilter && mongoose.Types.ObjectId.isValid(bookingFilter)) {
+      filter.bookingId = new mongoose.Types.ObjectId(bookingFilter);
+    }
+
+    const total = await Dispute.countDocuments(filter);
     const disputes = await Dispute.find(filter)
-      .populate({
-        path: 'bookingId',
-        populate: { path: 'bookableItemId' },
-      })
+      .populate({ path: 'bookingId', populate: { path: 'bookableItemId' } })
       .populate('raisedBy', 'firstName lastName email phone')
-      .sort({ createdAt: -1 });
-
-    if (!disputes) {
-      return sendResponse(res, 400, false, 'Failed to retrieve disputes');
-    }
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
     return sendResponse(
       res,
       200,
       true,
       'Disputes retrieved successfully',
-      disputes,
+      withIdList(disputes),
+      { page, limit, total },
     );
   } catch (error) {
     next(error);
@@ -183,7 +202,19 @@ export const getDisputeById = asyncHandler(async (req, res, next) => {
       );
     }
 
-    return sendResponse(res, 200, true, 'Dispute found', dispute);
+    // Ownership: raiser, property owner/agent, or admin
+    const role = String(req.user?.role || '').toUpperCase();
+    const userId = String(req.user._id || req.user.id || req.user.sub);
+    const raiserId = String(dispute.raisedBy?._id || dispute.raisedBy);
+    const property = await propertyForBooking(dispute.bookingId);
+    const ownerId = String(property?.owner || '');
+    const isOwner = ownerId && ownerId === userId;
+    const isRaiser = raiserId === userId;
+    if (role !== 'ADMIN' && !isRaiser && !isOwner) {
+      return sendResponse(res, 403, false, 'You are not allowed to view this dispute');
+    }
+
+    return sendResponse(res, 200, true, 'Dispute found', withId(dispute));
   } catch (error) {
     next(error);
   }
@@ -193,7 +224,7 @@ export const getDisputeById = asyncHandler(async (req, res, next) => {
 export const resolveDispute = asyncHandler(async (req, res, next) => {
   try {
     const disputeId = req.params.id;
-    const { status } = req.validatedData || req.body;
+    const { status, resolutionNotes } = req.validatedData || req.body;
 
     if (!mongoose.Types.ObjectId.isValid(disputeId)) {
       return sendResponse(res, 400, false, 'Invalid dispute ID format');
@@ -209,7 +240,7 @@ export const resolveDispute = asyncHandler(async (req, res, next) => {
       );
     }
 
-    const dispute = await Dispute.findById(disputeId);
+    const dispute = await Dispute.findById(disputeId).populate('bookingId');
     if (!dispute) {
       return sendResponse(
         res,
@@ -219,7 +250,19 @@ export const resolveDispute = asyncHandler(async (req, res, next) => {
       );
     }
 
+    // Ownership: only the property owner/agent or admin can resolve
+    const role = String(req.user?.role || '').toUpperCase();
+    const userId = String(req.user._id || req.user.id || req.user.sub);
+    const property = await propertyForBooking(dispute.bookingId);
+    const ownerId = String(property?.owner || '');
+    if (role !== 'ADMIN' && ownerId !== userId) {
+      return sendResponse(res, 403, false, 'You can only resolve disputes on your own properties');
+    }
+
     dispute.status = status;
+    if (resolutionNotes !== undefined) dispute.resolutionNotes = resolutionNotes;
+    dispute.resolvedBy = req.user._id || req.user.id || req.user.sub;
+    dispute.resolvedAt = new Date();
     await dispute.save();
 
     // Notify the client who raised the dispute
@@ -235,12 +278,16 @@ export const resolveDispute = asyncHandler(async (req, res, next) => {
       });
     }
 
+    const populated = await Dispute.findById(dispute._id)
+      .populate({ path: 'bookingId', populate: { path: 'bookableItemId' } })
+      .populate('raisedBy', 'firstName lastName email phone');
+
     return sendResponse(
       res,
       200,
       true,
       `Dispute status updated to ${status}`,
-      dispute,
+      withId(populated),
     );
   } catch (error) {
     next(error);

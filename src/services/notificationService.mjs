@@ -64,7 +64,9 @@ export const createNotification = async ({
   });
 
   emitRealtime(`user:${recipientId}`, notification);
-  emitRealtime(`role:${recipientRole}`, notification);
+  // Do NOT fan out per-user payloads to role rooms; that leaks private
+  // notifications to every user sharing a role. Role-level broadcasts (e.g.
+  // announcements) are handled separately in broadcastAnnouncement.
 
   // Send FCM push notification in the background (best-effort)
   sendPushToUser(recipientId, title, message, {
@@ -94,13 +96,19 @@ export const broadcastAnnouncement = async ({
   message,
   senderId,
 }) => {
-  const roles = AUDIENCE_ROLES[audience] || AUDIENCE_ROLES.ALL;
+  if (!AUDIENCE_ROLES[audience]) {
+    const err = new Error('Invalid audience');
+    err.statusCode = 400;
+    throw err;
+  }
+  const roles = AUDIENCE_ROLES[audience];
 
   const recipients = await User.find(
     { role: { $in: roles }, isActive: true },
     { _id: 1, role: 1, fcmToken: 1 },
   );
 
+  const announcementId = new mongoose.Types.ObjectId();
   const notifications = [];
   const fcmTokens = [];
 
@@ -113,27 +121,25 @@ export const broadcastAnnouncement = async ({
       message,
       senderId,
       announcement: true,
+      announcementId,
     });
     notifications.push(notification);
 
     emitRealtime(`user:${user._id}`, notification);
-    emitRealtime(`role:${user.role}`, notification);
 
-    // Collect FCM tokens for batch push
     if (user.fcmToken) {
       fcmTokens.push(user.fcmToken);
     }
   }
 
-  // Send a single multicast push to all recipients with FCM tokens
   if (fcmTokens.length > 0) {
     sendPushNotification({
       tokens: fcmTokens,
       title: title || 'Announcement',
       body: message,
-      data: { kind: 'SYSTEM' },
+      data: { kind: 'SYSTEM', announcementId: String(announcementId) },
     }).catch(() => {});
   }
 
-  return notifications;
+  return { announcementId, count: notifications.length, notifications };
 };

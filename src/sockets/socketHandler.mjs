@@ -53,7 +53,8 @@ export const initSocket = (server) => {
     const { _id: userId, role } = socket.user || {};
     if (userId) {
       socket.join(`user:${userId}`);
-      if (role) socket.join(`role:${role}`);
+      // Role rooms are intentionally not joined: per-user payloads must never
+      // be broadcast to every user sharing a role.
     }
 
     // Keep a join_room handler for compatibility, but refuse anything that is

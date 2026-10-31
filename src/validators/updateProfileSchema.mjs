@@ -1,106 +1,36 @@
 import Joi from 'joi';
 
+const nameObject = Joi.object({
+  firstName: Joi.string().trim().min(2).max(100),
+  surname: Joi.string().trim().min(2).max(100),
+  lastName: Joi.string().trim().min(2).max(100),
+}).min(1);
+
+const addressObject = Joi.object({
+  district: Joi.string().trim().min(2).max(100),
+  traditionalAuthority: Joi.string().trim().min(2).max(100),
+  village: Joi.string().trim().min(2).max(100),
+}).min(1);
+
 export const updateProfileSchema = Joi.object({
-  name: Joi.object({
-    firstName: Joi.string()
-      .trim()
-      .min(2)
-      .max(100)
-      .messages({
-        'string.empty': 'First name cannot be empty',
-        'string.min': 'First name must be at least 2 characters long',
-        'string.max': 'First name cannot exceed 100 characters'
-      }),
+  // Top-level fields (used by the Qt client)
+  firstName: Joi.string().trim().min(2).max(100),
+  surname: Joi.string().trim().min(2).max(100),
+  lastName: Joi.string().trim().min(2).max(100),
+  email: Joi.string().email({ tlds: { allow: true } }).trim().lowercase(),
+  phone: Joi.string().trim().min(10).max(16),
+  preferredLocation: Joi.string().trim().max(200).allow(''),
+  residentialAddress: Joi.alternatives().try(Joi.string().trim().max(300).allow(''), addressObject),
 
-    surname: Joi.string()
-      .trim()
-      .min(2)
-      .max(100)
-      .messages({
-        'string.empty': 'Surname cannot be empty',
-        'string.min': 'Surname must be at least 2 characters long',
-        'string.max': 'Surname cannot exceed 100 characters'
-      })
-  })
-    .min(1)
-    .messages({
-      'object.min': 'Name object must contain at least one field (firstName or surname)'
-    }),
+  // Nested shape (legacy/other clients)
+  name: nameObject,
 
-  email: Joi.string()
-    .email({ tlds: { allow: true } })
-    .trim()
-    .lowercase()
-    .messages({
-      'string.email': 'Please provide a valid email address',
-      'string.empty': 'Email cannot be empty'
-    }),
-
-  residentialAddress: Joi.object({
-    district: Joi.string()
-      .trim()
-      .min(2)
-      .max(100)
-      .messages({
-        'string.empty': 'District cannot be empty',
-        'string.min': 'District must be at least 2 characters long',
-        'string.max': 'District cannot exceed 100 characters'
-      }),
-
-    traditionalAuthority: Joi.string()
-      .trim()
-      .min(2)
-      .max(100)
-      .messages({
-        'string.empty': 'Traditional Authority cannot be empty',
-        'string.min': 'Traditional Authority must be at least 2 characters long',
-        'string.max': 'Traditional Authority cannot exceed 100 characters'
-      }),
-
-    village: Joi.string()
-      .trim()
-      .min(2)
-      .max(100)
-      .messages({
-        'string.empty': 'Village cannot be empty',
-        'string.min': 'Village must be at least 2 characters long',
-        'string.max': 'Village cannot exceed 100 characters'
-      })
-  })
-    .min(1)
-    .messages({
-      'object.min': 'Residential address must contain at least one field'
-    }),
-
-  bankName: Joi.string()
-    .trim()
-    .allow('')
-    .max(100)
-    .messages({
-      'string.max': 'Bank name cannot exceed 100 characters'
-    }),
-
-  bankAccountNumber: Joi.string()
-    .trim()
-    .allow('')
-    .max(50)
-    .messages({
-      'string.max': 'Account number cannot exceed 50 characters'
-    }),
-
-  paymentMethod: Joi.string()
-    .trim()
-    .valid('Mobile money', 'Bank transfer', 'Card', 'Cash')
-    .messages({
-      'any.only': 'Payment method must be one of: Mobile money, Bank transfer, Card, Cash'
-    })
-
-})
-  .min(1)
-  .messages({
-    'object.min': 'At least one field (name, email, residentialAddress, bankName, bankAccountNumber, or paymentMethod) must be provided for update'
-  })
-  .options({ 
-    abortEarly: false,
-    stripUnknown: true
-  });
+  isStudent: Joi.boolean(),
+  budgetMin: Joi.number().min(0),
+  budgetMax: Joi.number().min(0),
+  assignedArea: Joi.string().trim().max(200).allow(''),
+  commissionRate: Joi.number().min(0).max(100),
+  bankName: Joi.string().trim().allow('').max(100),
+  bankAccountNumber: Joi.string().trim().allow('').max(50),
+  paymentMethod: Joi.string().trim().valid('Mobile money', 'Bank transfer', 'Card', 'Cash'),
+}).min(1).options({ abortEarly: false, stripUnknown: true });

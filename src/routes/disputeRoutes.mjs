@@ -1,6 +1,10 @@
 import express from 'express';
 import * as disputeController from '../controllers/disputeController.mjs';
 import { isAuthenticated, checkRole } from '../middleware/authMiddleware.mjs';
+import { validateRequest } from '../middleware/requestValidationMiddleware.mjs';
+import { createDisputeSchema } from '../validators/createDisputeSchema.mjs';
+import { updateDisputeSchema } from '../validators/updateDisputeSchema.mjs';
+import { queryDisputeSchema } from '../validators/queryDisputeSchema.mjs';
 
 const disputeRoutes = express.Router();
 
@@ -8,7 +12,8 @@ const disputeRoutes = express.Router();
 disputeRoutes.get(
   '/',
   isAuthenticated,
-  checkRole(['ADMIN', 'AGENT']),
+  checkRole(['ADMIN', 'AGENT', 'CLIENT']),
+  validateRequest(queryDisputeSchema, 'query'),
   disputeController.getAllDisputes,
 );
 
@@ -21,13 +26,20 @@ disputeRoutes.get(
 );
 
 // Raise a new dispute
-disputeRoutes.post('/', isAuthenticated, disputeController.raiseDispute);
+disputeRoutes.post(
+  '/',
+  isAuthenticated,
+  checkRole(['CLIENT', 'ADMIN']),
+  validateRequest(createDisputeSchema),
+  disputeController.raiseDispute,
+);
 
 // Resolve or reject a dispute
 disputeRoutes.patch(
   '/:id/resolve',
   isAuthenticated,
   checkRole(['ADMIN', 'AGENT']),
+  validateRequest(updateDisputeSchema),
   disputeController.resolveDispute,
 );
 

@@ -37,6 +37,7 @@ notificationRoutes.get('/count',
 // 🔹 Create notification
 notificationRoutes.post('/',
   isAuthenticated,
+  checkRole(['ADMIN']),
   notificationController.createNotificationHandler);
 
 // 🔹 Get single notification by ID

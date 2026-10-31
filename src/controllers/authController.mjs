@@ -153,10 +153,17 @@ export const googleCallback = (req, res) => {
 /**
  * Logout user
  */
-export const logoutUser = (req, res, next) => {
+export const logoutUser = async (req, res, next) => {
+  try {
+    if (req.user?._id || req.user?.id) {
+      await User.findByIdAndUpdate(req.user._id || req.user.id, { fcmToken: null });
+    }
+  } catch (e) {
+    // best-effort
+  }
   req.logout((err) => {
     if (err) return next(err);
-    req.session.destroy();
+    if (req.session) req.session.destroy(() => {});
     res.clearCookie('connect.sid');
     sendResponse(res, 200, true, 'Logged out successfully');
   });

@@ -17,6 +17,8 @@ import { registerUserSchema } from '../validators/registerUserSchema.mjs';
 import { loginUserSchema } from '../validators/loginUserSchema.mjs';
 import { isAuthenticated } from '../middleware/authMiddleware.mjs';
 import { checkEmailSchema } from '../validators/checkEmailSchema.mjs';
+import { changePasswordSchema } from '../validators/changePasswordSchema.mjs';
+import * as userController from '../controllers/userController.mjs';
 
 const authRoutes = express.Router();
 
@@ -34,6 +36,7 @@ authRoutes.get('/me', isAuthenticated, getMe);
 authRoutes.post('/otp/request', requestOtp);
 authRoutes.post('/otp/verify', verifyOtp);
 authRoutes.post('/password/reset', resetPassword);
+authRoutes.post('/password/change', isAuthenticated, validateRequest(changePasswordSchema), userController.changePassword);
 
 // Google Auth
 authRoutes.get(

@@ -1,4 +1,4 @@
-import { asyncHandler, sendResponse, withId } from '../utils/helpers.mjs';
+import { asyncHandler, sendResponse, withId, withIdList } from '../utils/helpers.mjs';
 import { Booking } from '../models/Booking.mjs';
 import { Room } from '../models/Room.mjs';
 import { Payment } from '../models/Payment.mjs';
@@ -145,6 +145,14 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
     return sendResponse(res, 404, false, 'Booking not found');
   }
 
+  // Amount must match the booking amount; never trust a client-supplied value.
+  const bookingAmount = Number(findBookingData.amount || 0);
+  const submittedAmount = Number(amount);
+  if (amount !== undefined && amount !== null && amount !== '' && submittedAmount !== bookingAmount) {
+    return sendResponse(res, 400, false, 'Payment amount does not match the booking amount');
+  }
+  const finalAmount = bookingAmount;
+
   const client = findBookingData.clientId || {};
   const mobile = phoneNumber || client.phone;
 
@@ -165,7 +173,7 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
   const response = await paychangu.chargeMobileMoney({
     mobile_money_operator_ref_id,
     mobile,
-    amount: String(amount || findBookingData.amount || 0),
+    amount: String(finalAmount),
     email: client.email,
     first_name: client.firstName,
     last_name: client.surname,
@@ -182,7 +190,7 @@ export const processMobilePayment = asyncHandler(async (req, res) => {
 
   const newPayment = new Payment({
     bookingId: finalBookingId,
-    amount: Number(amount) || findBookingData.amount,
+    amount: finalAmount,
     method: 'mobile_money',
     status: PaymentStatus.INITIATED,
     transactionRef: tx_ref,
@@ -261,8 +269,8 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
 
   if (isSuccess) {
     if (
-      !foundPayment.amount ||
-      (amount && Number(foundPayment.amount) === Number(amount)) ||
+      foundPayment.amount &&
+      Number(foundPayment.amount) === Number(amount) &&
       currency === CURRENCY
     ) {
       foundPayment.status = PaymentStatus.SUCCESS;
@@ -457,15 +465,43 @@ export const verifyMobilePayment = asyncHandler(async (req, res, next) => {
   });
 });
 
-//  GET /payments/user/:userId
+//  GET /payments (history)
+export const getPayments = asyncHandler(async (req, res, next) => {
+  try {
+    const page = Math.max(1, Number(req.query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit || 10)));
+    const callerId = String(req.user._id || req.user.id || req.user.sub);
+    const isAdmin = String(req.user.role || '').toUpperCase() === 'ADMIN';
+
+    let filter = {};
+    if (!isAdmin) {
+      const bookings = await Booking.find({ clientId: callerId }).select('_id');
+      filter.bookingId = { $in: bookings.map((b) => b._id) };
+    }
+
+    const total = await Payment.countDocuments(filter);
+    const payments = await Payment.find(filter)
+      .populate('bookingId')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    return sendResponse(res, 200, true, 'Payments retrieved', withIdList(payments), { page, limit, total });
+  } catch (error) {
+    next(error);
+  }
+});
 //  Returns the most recent payment for a user (by their bookings). When the
 //  supplied value is actually a payment record id it is returned directly,
 //  which supports the mobile app's "refresh payment" flow.
 export const getPaymentsByUser = asyncHandler(async (req, res, next) => {
   const { userId } = req.params;
 
-  if (!userId) {
-    return sendResponse(res, 400, false, 'User ID is required');
+  // Ownership: only self or admin
+  const callerId = String(req.user._id || req.user.id || req.user.sub);
+  const isAdmin = String(req.user.role || '').toUpperCase() === 'ADMIN';
+  if (!isAdmin && userId !== callerId) {
+    return sendResponse(res, 403, false, 'You can only view your own payments');
   }
 
   let payment = null;
@@ -653,12 +689,12 @@ export const refundPayment = asyncHandler(async (req, res, next) => {
   }
 
   if (payment.status === PaymentStatus.SUCCESS) {
-    payment.status = 'Refunded';
+    payment.status = PaymentStatus.REFUNDED;
     payment.failureReason = reason || payment.failureReason || 'refunded';
     payment.failedAt = payment.failedAt || new Date();
     await payment.save();
   } else if (payment.status !== 'Refunded') {
-    payment.status = 'Refunded';
+    payment.status = PaymentStatus.REFUNDED;
     payment.failureReason = reason || payment.failureReason || 'refunded';
     payment.failedAt = payment.failedAt || new Date();
     await payment.save();

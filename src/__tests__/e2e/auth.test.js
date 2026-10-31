@@ -1,6 +1,6 @@
 import request from 'supertest';
 import app from '../../app.mjs';
-import User from '../../models/User.mjs';
+import { User } from '../../models/User.mjs';
 
 describe('Auth API E2E', () => {
   let testUser = {

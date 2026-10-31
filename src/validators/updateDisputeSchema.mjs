@@ -10,4 +10,5 @@ export const updateDisputeSchema = Joi.object({
       'string.empty': 'Status is required',
       'any.required': 'Status is required',
     }),
+  resolutionNotes: Joi.string().trim().max(2000).optional(),
 });

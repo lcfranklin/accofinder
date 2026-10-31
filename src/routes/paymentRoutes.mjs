@@ -4,6 +4,7 @@ import {
   getSupportedMomoOperators,
   verifyMobilePayment,
   getSingleChargeDetails,
+  getPayments,
   getPaymentsByUser,
   cancelPayment,
   refundPayment,
@@ -46,6 +47,9 @@ paymentRoutes.get(
   isAuthenticated,
   getSingleChargeDetails,
 );
+
+// Payment history (paginated, role-scoped)
+paymentRoutes.get('/', isAuthenticated, getPayments);
 
 // Get the latest payment for a user (supports the app's payment refresh)
 paymentRoutes.get('/user/:userId', isAuthenticated, getPaymentsByUser);

@@ -56,12 +56,16 @@ export const getMyProfile = asyncHandler(async (req, res, next) => {
 export const updateMyProfile = asyncHandler(async (req, res, next) => {
   try {
     const userId = req.user.sub || req.user.id;
-    const {
+  const {
       firstName,
+      surname,
       lastName,
+      email,
       phone,
       isStudent,
       preferredLocation,
+      residentialAddress,
+      name,
       budgetMin,
       budgetMax,
       assignedArea,
@@ -71,26 +75,29 @@ export const updateMyProfile = asyncHandler(async (req, res, next) => {
       paymentMethod,
     } = req.validatedData || req.body;
 
-    const updates = {
-      firstName,
-      lastName,
-      phone,
-      isStudent,
-      preferredLocation,
-      budgetMin,
-      budgetMax,
-      assignedArea,
-      commissionRate,
-      bankName,
-      bankAccountNumber,
-      paymentMethod,
-    };
-
-    // Clean out undefined keys from payload
-    Object.keys(updates).forEach(
-      (key) => updates[key] === undefined && delete updates[key],
-    );
-
+    const updates = {};
+    if (firstName !== undefined) updates.firstName = firstName;
+    if (surname !== undefined) updates.surname = surname;
+    else if (lastName !== undefined) updates.surname = lastName;
+    if (email !== undefined) updates.email = email;
+    if (phone !== undefined) updates.phone = phone;
+    if (isStudent !== undefined) updates.isStudent = isStudent;
+    if (preferredLocation !== undefined) updates.preferredLocation = preferredLocation;
+    if (residentialAddress !== undefined) updates.residentialAddress = residentialAddress;
+    if (budgetMin !== undefined) updates.budgetMin = budgetMin;
+    if (budgetMax !== undefined) updates.budgetMax = budgetMax;
+    if (assignedArea !== undefined) updates.assignedArea = assignedArea;
+    if (commissionRate !== undefined) updates.commissionRate = commissionRate;
+    if (bankName !== undefined) updates.bankName = bankName;
+    if (name && typeof name === 'object') {
+      if (name.firstName !== undefined && updates.firstName === undefined) updates.firstName = name.firstName;
+      if (name.surname !== undefined && updates.surname === undefined) updates.surname = name.surname;
+      if (name.lastName !== undefined && updates.surname === undefined) updates.surname = name.lastName;
+    }
+    if (residentialAddress && typeof residentialAddress === 'object') {
+      const parts = [residentialAddress.village, residentialAddress.traditionalAuthority, residentialAddress.district].filter(Boolean);
+      if (parts.length) updates.residentialAddress = parts.join(', ');
+    }
     if (Object.keys(updates).length === 0) {
       return sendResponse(res, 400, false, 'Invalid or empty update fields');
     }
@@ -188,18 +195,43 @@ export const setUserStatus = asyncHandler(async (req, res, next) => {
   }
 });
 
-//  delete user
+//  change password (requires current password)
+export const changePassword = asyncHandler(async (req, res, next) => {
+  try {
+    const userId = req.user.sub || req.user.id || req.user._id;
+    const { currentPassword, newPassword } = req.validatedData || req.body;
+
+    if (!currentPassword || !newPassword) {
+      return sendResponse(res, 400, false, 'currentPassword and newPassword are required');
+    }
+    if (String(newPassword).length < 6) {
+      return sendResponse(res, 400, false, 'New password must be at least 6 characters');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendResponse(res, 404, false, 'User not found');
+    }
+
+    const ok = await user.matchPassword(currentPassword);
+    if (!ok) {
+      return sendResponse(res, 401, false, 'Current password is incorrect');
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return sendResponse(res, 200, true, 'Password changed successfully');
+  } catch (error) {
+    next(error);
+  }
+});
 export const deleteUser = asyncHandler(async (req, res, next) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.params.id);
     const deletedUser = await User.findByIdAndDelete(userId);
     if (!deletedUser) {
-      return sendResponse(
-        res,
-        500,
-        false,
-        'Internal server error occurred while deleting a user',
-      );
+      return sendResponse(res, 404, false, 'User not found');
     }
 
     return sendResponse(res, 200, true, `User ${userId} deleted successfully`);

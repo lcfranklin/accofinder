@@ -143,6 +143,7 @@ const toCommissionsList = async () => {
     .select('commissionAmount bookableItemId bookableItemType')
     .populate({
       path: 'bookableItemId',
+      strictPopulate: false,
       populate: { path: 'propertyId', select: 'owner' },
     });
 
@@ -172,6 +173,7 @@ const toCommissionsList = async () => {
     const agg = byOwner.get(String(agent._id)) || { count: 0, amount: 0 };
     return {
       agent: `${agent.firstName || ''} ${agent.surname || ''}`.trim(),
+      agentId: String(agent._id),
       amount: agg.amount,
       status: agg.amount > 0 ? 'Due' : 'Settled',
       bookings: agg.count,
@@ -198,10 +200,12 @@ const toPayoutsList = async () => {
     .limit(100);
 
   const list = payments.map((p) => ({
+    paymentId: String(p._id),
     landlord: `Landlord ${String(p.bookingId?._id || '').slice(-4)}`,
     amount: p.amount || 0,
     status: p.payoutStatus || 'Pending',
     property: p.bookingId ? String(p.bookingId._id || p.bookingId) : '',
+    bookingId: p.bookingId ? String(p.bookingId._id || p.bookingId) : '',
     period: p.paidAt ? p.paidAt.toISOString().slice(0, 7) : '',
   }));
 
