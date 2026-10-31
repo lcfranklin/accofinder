@@ -26,6 +26,12 @@ export const uploadMedia = asyncHandler(async (req, res, next) => {
     if (!property) {
       return sendResponse(res, 404, false, 'Target property not found');
     }
+
+    const userId = String(req.user?._id || req.user?.id || req.user?.sub);
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin && String(property.owner) !== userId) {
+      return sendResponse(res, 403, false, 'You can only modify media of your own properties');
+    }
     const ext = req.file.originalname.split('.').pop() || 'jpg';
     const key = `properties/${propertyId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
@@ -98,6 +104,12 @@ export const attachMediaToProperty = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, 'Target property not found');
     }
 
+    const userId = String(req.user?._id || req.user?.id || req.user?.sub);
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin && String(property.owner) !== userId) {
+      return sendResponse(res, 403, false, 'You can only modify media of your own properties');
+    }
+
     const media = await Media.create({
       propertyId: new mongoose.Types.ObjectId(propertyId),
       url,
@@ -138,14 +150,22 @@ export const deleteMedia = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Invalid media ID format');
     }
 
-    const deletedMedia = await Media.findByIdAndDelete(mediaId);
-
-    if (!deletedMedia) {
+    const media = await Media.findById(mediaId);
+    if (!media) {
       return sendResponse(res, 404, false, 'Media record not found or already deleted');
     }
 
+    const property = await Property.findById(media.propertyId);
+    const userId = String(req.user?._id || req.user?.id || req.user?.sub);
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin && (!property || String(property.owner) !== userId)) {
+      return sendResponse(res, 403, false, 'You can only delete media of your own properties');
+    }
+
+    await Media.findByIdAndDelete(mediaId);
+
     // Also remove the underlying file from S3 so storage doesn't leak.
-    if (deletedMedia.url) {
+    if (media.url) {
       try {
         await deleteS3ObjectByUrl(deletedMedia.url);
       } catch (err) {
@@ -177,6 +197,13 @@ export const updateMedia = asyncHandler(async (req, res, next) => {
     const media = await Media.findById(mediaId);
     if (!media) {
       return sendResponse(res, 404, false, 'Media record not found');
+    }
+
+    const property = await Property.findById(media.propertyId);
+    const userId = String(req.user?._id || req.user?.id || req.user?.sub);
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin && (!property || String(property.owner) !== userId)) {
+      return sendResponse(res, 403, false, 'You can only update media of your own properties');
     }
 
     if (isPrimary === true) {

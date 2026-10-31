@@ -130,6 +130,16 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 400, false, 'Invalid property ID');
     }
 
+    const existing = await Property.findById(propertyId).select('owner verificationStatus');
+    if (!existing) {
+      return sendResponse(res, 404, false, 'Property not found');
+    }
+
+    const userId = String(req.user?._id || req.user?.id || req.user?.sub);
+    if (!isAdmin && String(existing.owner) !== userId) {
+      return sendResponse(res, 403, false, 'You can only edit your own properties');
+    }
+
     const {
       media,
       title,
@@ -147,6 +157,11 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       landlordPhone,
       isActive,
     } = req.validatedData;
+
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin && (verificationStatus !== undefined || approvedBy !== undefined || approvedByName !== undefined)) {
+      return sendResponse(res, 403, false, 'Only admins can change verification status');
+    }
 
     const setUpdates = {};
     if (title !== undefined) setUpdates.title = title;
@@ -278,7 +293,14 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
 
     const filter = {};
     if (verificationStatus) filter.verificationStatus = verificationStatus;
-    if (owner) filter.owner = owner;
+    if (owner) {
+      const callerId = String(req.user?._id || req.user?.id || req.user?.sub || '');
+      const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+      if (!isAdmin && owner !== callerId) {
+        return sendResponse(res, 403, false, 'You can only view your own properties');
+      }
+      filter.owner = owner;
+    }
 
     const callerRole = String(req.user?.role || '').toUpperCase();
 
@@ -359,7 +381,13 @@ export const getPropertyById = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, `Property with id ${propertyId} not found`);
     }
 
-    return sendResponse(res, 200, true, 'Property found', {
+    const userId = String(req.user?._id || req.user?.id || req.user?.sub || '');
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    const isOwner = userId && String(property.owner?._id || property.owner) === userId;
+    const status = String(property.verificationStatus || '').toUpperCase();
+    if (!isAdmin && !isOwner && status !== 'VERIFIED') {
+      return sendResponse(res, 404, false, `Property with id ${propertyId} not found`);
+    }
       ...propertyToDto(property),
       rooms: rooms.map(roomToDto),
     });
@@ -387,9 +415,16 @@ export const deleteProperty = asyncHandler(async (req, res, next) => {
     // confirmed bookings all still occupy it. An unrecognised future status
     // blocks by default, which is the safe direction for a guard.
     const activeBookingFilter = {
-      roomId: { $in: roomIds },
+      bookableItemId: { $in: roomIds },
+      bookableItemType: 'Room',
       status: { $nin: [BookingStatus.CANCELLED, BookingStatus.EXPIRED] },
     };
+    // Also block if the whole property has active bookings
+    const propertyActive = await Booking.countDocuments({
+      bookableItemId: new mongoose.Types.ObjectId(propertyId),
+      bookableItemType: 'Property',
+      status: { $nin: [BookingStatus.CANCELLED, BookingStatus.EXPIRED] },
+    });
     const activeBookings = roomIds.length
       ? await Booking.countDocuments(activeBookingFilter)
       : 0;
@@ -398,7 +433,7 @@ export const deleteProperty = asyncHandler(async (req, res, next) => {
     // after it has shown the warning below.
     const force = req.query.force === 'true';
 
-    if (activeBookings > 0 && !force) {
+    if (activeBookings + propertyActive > 0 && !force) {
       return sendResponse(
         res,
         409,

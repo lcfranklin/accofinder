@@ -180,6 +180,12 @@ export const createRoom = asyncHandler(async (req, res, next) => {
       return sendResponse(res, 404, false, 'Parent property not found');
     }
 
+    const userId = String(req.user?._id || req.user?.id || req.user?.sub);
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin && String(property.owner) !== userId) {
+      return sendResponse(res, 403, false, 'You can only add rooms to your own properties');
+    }
+
     const room = await Room.create({
       propertyId: new mongoose.Types.ObjectId(propertyId),
       type,
@@ -222,6 +228,18 @@ export const updateRoom = asyncHandler(async (req, res, next) => {
 
     if (Object.keys(updates).length === 0) {
       return sendResponse(res, 400, false, 'Invalid or empty update fields');
+    }
+
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return sendResponse(res, 404, false, `Room with id ${roomId} not found`);
+    }
+
+    const property = await Property.findById(room.propertyId);
+    const userId = String(req.user?._id || req.user?.id || req.user?.sub);
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin && (!property || String(property.owner) !== userId)) {
+      return sendResponse(res, 403, false, 'You can only edit rooms of your own properties');
     }
 
     const updatedRoom = await Room.findByIdAndUpdate(
@@ -282,6 +300,17 @@ export const deleteRoom = asyncHandler(async (req, res, next) => {
 
     if (!mongoose.Types.ObjectId.isValid(roomId)) {
       return sendResponse(res, 400, false, 'Invalid room ID format');
+    }
+
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return sendResponse(res, 404, false, `Room with id ${roomId} not found`);
+    }
+    const property = await Property.findById(room.propertyId);
+    const userId = String(req.user?._id || req.user?.id || req.user?.sub);
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin && (!property || String(property.owner) !== userId)) {
+      return sendResponse(res, 403, false, 'You can only delete rooms of your own properties');
     }
 
     const deletedRoom = await Room.findByIdAndDelete(roomId);
