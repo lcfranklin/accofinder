@@ -141,23 +141,45 @@ const toCommissionsList = async () => {
     status: { $in: CONFIRMED_BOOKING_STATUSES },
   })
     .select('commissionAmount bookableItemId bookableItemType')
-    .populate({
-      path: 'bookableItemId',
-      strictPopulate: false,
-      populate: { path: 'propertyId', select: 'owner' },
-    });
+    .populate('bookableItemId');
+
+  // Collect the property ids we need to resolve owners, avoiding a nested
+  // populate that Mongoose rejects (bookableItemId may be a Property, which
+  // has no `propertyId` field).
+  const propertyIds = new Set();
+  for (const booking of bookings) {
+    const bookable = booking.bookableItemId;
+    if (!bookable) continue;
+    if (booking.bookableItemType === 'Property') {
+      // bookable is the property itself
+    } else if (booking.bookableItemType === 'Room' && bookable.propertyId) {
+      propertyIds.add(String(bookable.propertyId));
+    }
+  }
+  // Property bookings contribute their own _id
+  for (const booking of bookings) {
+    if (booking.bookableItemType === 'Property' && booking.bookableItemId?._id) {
+      propertyIds.add(String(booking.bookableItemId._id));
+    }
+  }
+  const properties = propertyIds.size
+    ? await Property.find({ _id: { $in: [...propertyIds] } }).select('_id owner')
+    : [];
+  const propertyMap = new Map(properties.map((p) => [String(p._id), p]));
 
   // Aggregate per owner once, then read each agent's bucket by id.
   const byOwner = new Map();
   for (const booking of bookings) {
     let owner = null;
     const bookable = booking.bookableItemId;
-    if (bookable) {
-      if (bookable.propertyId && bookable.propertyId.owner) {
-        owner = bookable.propertyId.owner;
-      } else if (bookable.owner) {
-        owner = bookable.owner;
-      }
+    if (!bookable) continue;
+    if (booking.bookableItemType === 'Property') {
+      owner = bookable.owner || propertyMap.get(String(bookable._id))?.owner;
+    } else if (booking.bookableItemType === 'Room') {
+      const prop = bookable.propertyId
+        ? propertyMap.get(String(bookable.propertyId))
+        : null;
+      owner = prop?.owner || bookable.owner;
     }
     if (!owner) continue;
     const key = String(owner);
