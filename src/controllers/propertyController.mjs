@@ -388,6 +388,7 @@ export const getPropertyById = asyncHandler(async (req, res, next) => {
     if (!isAdmin && !isOwner && status !== 'VERIFIED') {
       return sendResponse(res, 404, false, `Property with id ${propertyId} not found`);
     }
+    return sendResponse(res, 200, true, 'Property found', {
       ...propertyToDto(property),
       rooms: rooms.map(roomToDto),
     });
