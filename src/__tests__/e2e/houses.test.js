@@ -67,6 +67,7 @@ describe('Property listing API', () => {
       title: 'Property update fees',
       description: 'A property used to verify updated monetary fields.',
       owner: agentId,
+      verificationStatus: 'VERIFIED',
     });
 
     const updateResponse = await request(app)

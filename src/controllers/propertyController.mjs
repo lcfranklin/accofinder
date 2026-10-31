@@ -136,6 +136,7 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
     }
 
     const userId = String(req.user?._id || req.user?.id || req.user?.sub);
+    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
     if (!isAdmin && String(existing.owner) !== userId) {
       return sendResponse(res, 403, false, 'You can only edit your own properties');
     }
@@ -158,7 +159,6 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
       isActive,
     } = req.validatedData;
 
-    const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
     if (!isAdmin && (verificationStatus !== undefined || approvedBy !== undefined || approvedByName !== undefined)) {
       return sendResponse(res, 403, false, 'Only admins can change verification status');
     }
@@ -296,7 +296,7 @@ export const getAllProperties = asyncHandler(async (req, res, next) => {
     if (owner) {
       const callerId = String(req.user?._id || req.user?.id || req.user?.sub || '');
       const isAdmin = String(req.user?.role || '').toUpperCase() === 'ADMIN';
-      if (!isAdmin && owner !== callerId) {
+      if (req.user && !isAdmin && owner !== callerId) {
         return sendResponse(res, 403, false, 'You can only view your own properties');
       }
       filter.owner = owner;
