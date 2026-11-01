@@ -146,7 +146,10 @@ describe('DELETE /api/house-listing/:id', () => {
 
     expect(res.statusCode).toBe(200);
     expect(Booking.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ roomId: { $in: [ROOM_ID] } }),
+      expect.objectContaining({
+        bookableItemId: { $in: [ROOM_ID] },
+        bookableItemType: 'Room',
+      }),
       { $set: { status: 'Cancelled' } },
     );
     expect(Room.deleteMany).toHaveBeenCalledWith({ propertyId: PROPERTY_ID });
@@ -167,13 +170,16 @@ describe('DELETE /api/house-listing/:id', () => {
     expect(Booking.updateMany).not.toHaveBeenCalled();
   });
 
-  it('skips the booking guard entirely when the property has no rooms', async () => {
+  it('checks for direct property bookings when the property has no rooms', async () => {
     mockRooms();
 
     const res = await request(app).delete(`/api/house-listing/${PROPERTY_ID}`);
 
     expect(res.statusCode).toBe(200);
-    expect(Booking.countDocuments).not.toHaveBeenCalled();
+    const filter = Booking.countDocuments.mock.calls[0][0];
+    expect(filter.bookableItemId.toString()).toBe(PROPERTY_ID);
+    expect(filter.bookableItemType).toBe('Property');
+    expect(filter.status.$nin).toEqual(['Cancelled', 'Expired']);
     expect(Room.deleteMany).toHaveBeenCalledWith({ propertyId: PROPERTY_ID });
   });
 

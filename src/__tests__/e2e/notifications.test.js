@@ -1,37 +1,24 @@
 import request from 'supertest';
 import app from '../../app.mjs';
-import Notification from '../../models/Notification.mjs';
-import User from '../../models/User.mjs';
+import { Notification } from '../../models/Notification.mjs';
+import { User } from '../../models/User.mjs';
+import { createTestUser } from '../../test-utils/testUser.mjs';
 
 describe('Notifications API E2E', () => {
+  let adminUser;
   let authToken;
 
   beforeAll(async () => {
-    await User.deleteMany({ email: 'notification-test@example.com' });
-    
-    const registerRes = await request(app)
-      .post('/api/auth/register')
-      .send({
-        name: {
-          firstName: 'Notification',
-          surname: 'User'
-        },
-        email: 'notification-test@example.com',
-        password: 'Test123!',
-        confirmPassword: 'Test123!',
-        residentialAddress: {
-          district: 'Lilongwe',
-          traditionalAuthority: 'Chief Kwataine',
-          village: 'Notification Village'
-        }
-      });
-    
-    authToken = registerRes.body.data.accessToken;
+    ({ user: adminUser, accessToken: authToken } = await createTestUser({
+      firstName: 'Notification',
+      email: 'notification-test@example.com',
+      role: 'ADMIN',
+    }));
   });
 
   afterAll(async () => {
-    await Notification.deleteMany({});
-    await User.deleteMany({ email: 'notification-test@example.com' });
+    await Notification.deleteMany({ recipientId: adminUser._id });
+    await User.deleteOne({ _id: adminUser._id });
   });
 
   describe('GET /api/notifications', () => {
@@ -41,7 +28,8 @@ describe('Notifications API E2E', () => {
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(res.statusCode).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
     });
   });
 
@@ -49,8 +37,9 @@ describe('Notifications API E2E', () => {
     it('should create a new notification', async () => {
       const notificationData = {
         message: 'Test notification',
-        userId: 'test-user-id',
-        type: 'info'
+        recipientId: adminUser._id,
+        recipientRole: 'ADMIN',
+        kind: 'SYSTEM',
       };
 
       const res = await request(app)
@@ -59,8 +48,8 @@ describe('Notifications API E2E', () => {
         .send(notificationData);
 
       expect(res.statusCode).toBe(201);
-      expect(res.body).toHaveProperty('_id');
-      expect(res.body.message).toBe(notificationData.message);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.message).toBe(notificationData.message);
     });
   });
 });

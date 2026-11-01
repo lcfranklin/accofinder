@@ -4,6 +4,7 @@ import { Dispute } from '../../models/Dispute.mjs';
 import { User } from '../../models/User.mjs';
 import { Booking } from '../../models/Booking.mjs';
 import { Property } from '../../models/Property.mjs';
+import { createTestUser } from '../../test-utils/testUser.mjs';
 
 describe('Disputes API E2E', () => {
   let authToken;
@@ -11,22 +12,10 @@ describe('Disputes API E2E', () => {
   let bookingId;
 
   beforeAll(async () => {
-    await User.deleteMany({ email: 'dispute-test@example.com' });
-
-    const registerRes = await request(app)
-      .post('/api/auth/register')
-      .send({
-        firstName: 'Dispute',
-        surname: 'User',
-        email: 'dispute-test@example.com',
-        phone: '+265999000111',
-        password: 'Test123!',
-        confirmPassword: 'Test123!',
-        residentialAddress: 'Dispute Village, Lilongwe',
-      });
-
-    authToken = registerRes.body.data.accessToken;
-    testUser = registerRes.body.data;
+    ({ user: testUser, accessToken: authToken } = await createTestUser({
+      firstName: 'Dispute',
+      email: 'dispute-test@example.com',
+    }));
 
     // Create a property owned by an agent/admin is not needed; instead create
     // a booking directly is not possible without property. We'll rely on the
@@ -38,7 +27,7 @@ describe('Disputes API E2E', () => {
     await Dispute.deleteMany({});
     await Booking.deleteMany({});
     await Property.deleteMany({});
-    await User.deleteMany({ email: 'dispute-test@example.com' });
+    await User.deleteOne({ _id: testUser._id });
   });
 
   describe('GET /api/disputes', () => {

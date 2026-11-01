@@ -33,16 +33,11 @@ export const registerUser = asyncHandler(async (req, res, next) => {
 
   if (user) {
     // Automatically log in the user after registration
-    req.login(user, (err) => {
-      if (err) return next(err);
-      const accessToken = generateAccessToken(user);
-      const refreshToken = generateRefreshToken(user);
-
       sendResponse(
         res,
         201,
         true,
-        'User registered and logged in successfully',
+        'User registered successfully',
         {
           _id: user._id,
           firstName: user.firstName,
@@ -50,14 +45,11 @@ export const registerUser = asyncHandler(async (req, res, next) => {
           email: user.email,
           phone: user.phone,
           residentialAddress: user.residentialAddress,
-          role: user.role,
-          accessToken,
-          refreshToken,
+          role: user.role
         },
       );
-    });
   } else {
-    sendResponse(400, false, 'Invalid user data');
+    sendResponse(400, false, 'User registration failed');
   }
 });
 

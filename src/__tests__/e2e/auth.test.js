@@ -3,19 +3,14 @@ import app from '../../app.mjs';
 import { User } from '../../models/User.mjs';
 
 describe('Auth API E2E', () => {
-  let testUser = {
-    name: {
-      firstName: 'Test',
-      surname: 'User'
-    },
+  const testUser = {
+    firstName: 'Test',
+    surname: 'User',
     email: 'test@example.com',
+    phone: '+265999000111',
     password: 'Test123!',
     confirmPassword: 'Test123!',
-    residentialAddress: {
-      district: 'Lilongwe',
-      traditionalAuthority: 'Chief Kwataine',
-      village: 'Mtsiliza'
-    }
+    residentialAddress: 'Mtsiliza, Lilongwe',
   };
 
   beforeEach(async () => {
@@ -34,10 +29,8 @@ describe('Auth API E2E', () => {
 
       expect(res.statusCode).toBe(201);
       expect(res.body.success).toBe(true);
-      expect(res.body.message).toBe('User registered and logged in successfully');
+      expect(res.body.message).toBe('User registered successfully');
       expect(res.body.data).toHaveProperty('_id');
-      expect(res.body.data).toHaveProperty('accessToken');
-      expect(res.body.data).toHaveProperty('refreshToken');
       expect(res.body.data.email).toBe(testUser.email);
       expect(res.body.data.role).toBe('CLIENT');
     });
@@ -80,6 +73,7 @@ describe('Auth API E2E', () => {
   describe('POST /api/auth/login', () => {
     beforeEach(async () => {
       await request(app).post('/api/auth/register').send(testUser);
+      await User.updateOne({ email: testUser.email }, { isEmailVerified: true });
     });
 
     it('should login successfully with valid credentials', async () => {
@@ -127,10 +121,12 @@ describe('Auth API E2E', () => {
     let accessToken;
 
     beforeEach(async () => {
-      const registerRes = await request(app)
-        .post('/api/auth/register')
-        .send(testUser);
-      accessToken = registerRes.body.data.accessToken;
+      await request(app).post('/api/auth/register').send(testUser);
+      await User.updateOne({ email: testUser.email }, { isEmailVerified: true });
+      const loginRes = await request(app)
+        .post('/api/auth/login')
+        .send({ email: testUser.email, password: testUser.password });
+      accessToken = loginRes.body.data.accessToken;
     });
 
     it('should return user profile when authenticated', async () => {
@@ -158,10 +154,12 @@ describe('Auth API E2E', () => {
     let refreshToken;
 
     beforeEach(async () => {
-      const registerRes = await request(app)
-        .post('/api/auth/register')
-        .send(testUser);
-      refreshToken = registerRes.body.data.refreshToken;
+      await request(app).post('/api/auth/register').send(testUser);
+      await User.updateOne({ email: testUser.email }, { isEmailVerified: true });
+      const loginRes = await request(app)
+        .post('/api/auth/login')
+        .send({ email: testUser.email, password: testUser.password });
+      refreshToken = loginRes.body.data.refreshToken;
     });
 
     it('should refresh access token successfully', async () => {

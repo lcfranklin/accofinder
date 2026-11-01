@@ -2,6 +2,15 @@
 import mongoose from 'mongoose';
 import connectDB from './src/config/db.mjs';
 
+jest.mock('connect-mongo', () => ({
+  __esModule: true,
+  default: {
+            create: () => undefined,
+    create: () => undefined,
+create: () => undefined,
+  }
+}));
+
 // Set test environment
 process.env.NODE_ENV = 'test';
 

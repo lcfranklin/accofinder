@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../../app.mjs';
-import User from '../../models/User.mjs';
+import { User } from '../../models/User.mjs';
+import { createTestUser } from '../../test-utils/testUser.mjs';
 
 describe('Users API E2E', () => {
   let adminToken;
@@ -10,63 +11,27 @@ describe('Users API E2E', () => {
   let clientUser;
 
   beforeAll(async () => {
-    await User.deleteMany({ email: { $in: ['admin-e2e@test.com', 'client-e2e@test.com'] } });
+    const admin = await createTestUser({
+      firstName: 'Admin',
+      surname: 'E2E',
+      email: 'admin-e2e@test.com',
+      role: 'ADMIN',
+    });
+    adminUser = admin.user;
+    adminToken = admin.accessToken;
 
-    // Create admin
-    const adminRes = await request(app)
-      .post('/api/auth/register')
-      .send({
-        name: {
-          firstName: 'Admin',
-          surname: 'E2E'
-        },
-        email: 'admin-e2e@test.com',
-        password: 'Admin123!',
-        confirmPassword: 'Admin123!',
-        residentialAddress: {
-          district: 'Lilongwe',
-          traditionalAuthority: 'Chief Kwataine',
-          village: 'Admin Village'
-        }
-      });
-    adminUser = adminRes.body.data;
-    
-    // Promote to admin
-    await User.findByIdAndUpdate(adminUser._id, { role: 'ADMIN' });
-    
-    // Refresh admin token with new role
-    const adminLoginRes = await request(app)
-      .post('/api/auth/login')
-      .send({
-        email: 'admin-e2e@test.com',
-        password: 'Admin123!'
-      });
-    adminToken = adminLoginRes.body.data.accessToken;
-
-    // Create client
-    const clientRes = await request(app)
-      .post('/api/auth/register')
-      .send({
-        name: {
-          firstName: 'Client',
-          surname: 'E2E'
-        },
-        email: 'client-e2e@test.com',
-        password: 'Client123!',
-        confirmPassword: 'Client123!',
-        residentialAddress: {
-          district: 'Blantyre',
-          traditionalAuthority: 'Chief Chigaru',
-          village: 'Client Village'
-        }
-      });
-    clientToken = clientRes.body.data.accessToken;
-    clientUser = clientRes.body.data;
+    const client = await createTestUser({
+      firstName: 'Client',
+      surname: 'E2E',
+      email: 'client-e2e@test.com',
+    });
+    clientToken = client.accessToken;
+    clientUser = client.user;
     testUserId = clientUser._id;
   });
 
   afterAll(async () => {
-    await User.deleteMany({ email: { $in: ['admin-e2e@test.com', 'client-e2e@test.com'] } });
+    await User.deleteMany({ _id: { $in: [adminUser._id, clientUser._id] } });
   });
 
   describe('GET /api/users', () => {
@@ -105,7 +70,7 @@ describe('Users API E2E', () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.email).toBe('client-e2e@test.com');
-      expect(res.body.data.name.firstName).toBe('Client');
+      expect(res.body.data.firstName).toBe('Client');
     });
   });
 
@@ -128,7 +93,7 @@ describe('Users API E2E', () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.name.firstName).toBe('Updated Client');
+      expect(res.body.data.firstName).toBe('Updated Client');
     });
   });
 
@@ -148,7 +113,7 @@ describe('Users API E2E', () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data._id).toBe(testUserId);
+      expect(String(res.body.data._id)).toBe(String(testUserId));
     });
   });
 
