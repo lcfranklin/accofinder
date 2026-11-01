@@ -1,14 +1,15 @@
 import { Booking } from '../models/Booking.mjs';
 import { Room } from '../models/Room.mjs';
 import { Property } from '../models/Property.mjs';
+import { Payment } from '../models/Payment.mjs';
 import { BookingStatus } from '../models/enums/BookingStatus.mjs';
+import { PaymentStatus } from '../models/enums/PaymentStatus.mjs';
 import { createNotification } from './notificationService.mjs';
 import { releaseHold } from './holdService.mjs';
 import {
   HOLD_SUBJECT_STATUSES,
   HOLD_SWEEP_INTERVAL_MS,
 } from '../config/holdConfig.mjs';
-
 // Automatic release of lapsed provisional holds.
 //
 // This is the component that closes the inventory leak. Without it a hold is
@@ -46,6 +47,21 @@ const expiredHoldFilter = (now) => ({
  * @param {number}  [options.limit=200]  max bookings processed per sweep
  * @returns {Promise<{expired: number, roomsReleased: number, errors: number}>}
  */
+const hasSuccessfulPayment = async (bookingId) => {
+  if (!bookingId) return false;
+
+  const payment = await Payment.findOne({
+    bookingId,
+    status: PaymentStatus.SUCCESS,
+    paidAt: { $ne: null },
+  })
+    .sort({ paidAt: -1, createdAt: -1 })
+    .select('_id')
+    .lean();
+
+  return Boolean(payment);
+};
+
 export const releaseExpiredHolds = async ({
   notify = true,
   limit = 200,
@@ -60,6 +76,10 @@ export const releaseExpiredHolds = async ({
 
   for (const candidate of candidates) {
     try {
+      if (await hasSuccessfulPayment(candidate._id)) {
+        continue;
+      }
+
       // Re-check atomically so we never expire a booking that was confirmed or
       // cancelled between the find above and now.
       const claimed = await Booking.findOneAndUpdate(

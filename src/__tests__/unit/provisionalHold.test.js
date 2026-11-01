@@ -3,8 +3,10 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import { Room } from '../../models/Room.mjs';
 import { Booking } from '../../models/Booking.mjs';
+import { Payment } from '../../models/Payment.mjs';
 import { Property } from '../../models/Property.mjs';
 import { BookingStatus } from '../../models/enums/BookingStatus.mjs';
+import { PaymentStatus } from '../../models/enums/PaymentStatus.mjs';
 import {
   claimHold,
   releaseHold,
@@ -77,6 +79,7 @@ beforeEach(async () => {
     Room.deleteMany({}),
     Booking.deleteMany({}),
     Property.deleteMany({}),
+    Payment.deleteMany({}),
   ]);
 });
 
@@ -375,6 +378,39 @@ describe('releaseExpiredHolds', () => {
     expect(stats.expired).toBe(0);
     const storedBooking = await Booking.findById(booking._id);
     expect(storedBooking.status).toBe(BookingStatus.PENDING_PAYMENT);
+  });
+
+  it('never expires a booking that already succeeded at payment', async () => {
+    const room = await makeRoom();
+    const booking = await makeBooking(room, {
+      status: BookingStatus.PENDING_PAYMENT,
+      expiresAt: new Date(Date.now() - 1000),
+      hardExpiresAt: new Date(Date.now() + 60_000),
+    });
+    await claimHold({
+      roomId: room._id,
+      bookingId: booking._id,
+      expiresAt: booking.expiresAt,
+    });
+    await Payment.create({
+      bookingId: booking._id,
+      amount: booking.amount,
+      method: 'mobile_money',
+      status: PaymentStatus.SUCCESS,
+      transactionRef: `hold-skip-${Date.now()}`,
+      paidAt: new Date(),
+      payoutStatus: 'Pending',
+    });
+
+    const stats = await releaseExpiredHolds({ notify: false });
+
+    expect(stats.expired).toBe(0);
+    expect((await Booking.findById(booking._id)).status).toBe(
+      BookingStatus.PENDING_PAYMENT,
+    );
+    expect((await Room.findById(room._id)).holdRef.toString()).toBe(
+      booking._id.toString(),
+    );
   });
 
   it('never expires a confirmed booking', async () => {

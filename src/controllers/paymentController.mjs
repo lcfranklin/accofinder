@@ -71,6 +71,34 @@ const backfillBookableItemFields = (booking) => {
   return booking;
 };
 
+const getBookableRef = (booking) => {
+  if (!booking) return { type: null, id: null };
+
+  const type = String(
+    booking.bookableItemType || (booking.roomId ? 'Room' : ''),
+  ).trim();
+
+  return {
+    type: type === 'Property' ? 'Property' : type === 'Room' ? 'Room' : null,
+    id: booking.bookableItemId || booking.roomId || null,
+  };
+};
+
+const releaseBookableForBooking = async (booking) => {
+  const { type, id } = getBookableRef(booking);
+  if (!id) return false;
+
+  if (type === 'Property') {
+    const property = await Property.findById(id);
+    if (!property) return false;
+    property.available = true;
+    await property.save();
+    return true;
+  }
+
+  return releaseHold({ roomId: id, bookingId: booking._id });
+};
+
 /**
  * Push a booking's hold out by the in-flight grace period because a payment has
  * been sent to the provider.
@@ -615,21 +643,19 @@ export const cancelPayment = asyncHandler(async (req, res, next) => {
         }
       }
       try {
-        const roomId = booking.bookableItemType === 'Room' ? booking.bookableItemId : booking.bookableItemId || booking.roomId;
-        if (roomId) {
-          await releaseHold({ roomId, bookingId: booking._id });
-        }
+        roomReleased = await releaseBookableForBooking(booking);
       } catch (e) {
         console.error('[cancelPayment] releaseHold failed:', e.message);
       }
 
-      const isProperty = String(booking.bookableItemType).toLowerCase() === 'property';
+      const isProperty = String(booking.bookableItemType || '').toLowerCase() === 'property';
       const bookableItem = isProperty
         ? await Property.findById(booking.bookableItemId)
         : await Room.findById(booking.bookableItemId);
       if (bookableItem && isProperty) {
         bookableItem.available = true;
         await bookableItem.save();
+        roomReleased = true;
       } else if (bookableItem) {
         roomReleased = await releaseHold({
           roomId: booking.bookableItemId,
@@ -700,6 +726,8 @@ export const refundPayment = asyncHandler(async (req, res, next) => {
     await payment.save();
   }
 
+  let roomReleased = false;
+
   if (payment.bookingId) {
     const booking = await Booking.findById(payment.bookingId);
     if (booking) {
@@ -721,9 +749,9 @@ export const refundPayment = asyncHandler(async (req, res, next) => {
       }
 
       try {
-        const roomId = booking.bookableItemType === 'Room' ? booking.bookableItemId : booking.bookableItemId || booking.roomId;
-        if (roomId) {
-          await releaseHold({ roomId, bookingId: booking._id });
+        const released = await releaseBookableForBooking(booking);
+        if (released) {
+          roomReleased = released;
         }
       } catch (e) {
         console.error('[refundPayment] releaseHold failed:', e.message);

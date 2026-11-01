@@ -204,6 +204,7 @@ describe('bookable item bookings', () => {
     const property = await Property.create({
       title: 'Property fee update',
       description: 'A property used for update round-trip coverage.',
+      verificationStatus: 'VERIFIED',
       owner: agentId,
     });
 

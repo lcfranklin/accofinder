@@ -75,6 +75,34 @@ const verifyWithProvider = async (transactionRef) => {
   }
 };
 
+const getBookableRef = (booking) => {
+  if (!booking) return { type: null, id: null };
+
+  const type = String(
+    booking.bookableItemType || (booking.roomId ? 'Room' : ''),
+  ).trim();
+
+  return {
+    type: type === 'Property' ? 'Property' : type === 'Room' ? 'Room' : null,
+    id: booking.bookableItemId || booking.roomId || null,
+  };
+};
+
+const releaseBookableForBooking = async (booking) => {
+  const { type, id } = getBookableRef(booking);
+  if (!id) return false;
+
+  if (type === 'Property') {
+    const property = await Property.findById(id);
+    if (!property) return false;
+    property.available = true;
+    await property.save();
+    return true;
+  }
+
+  return releaseHold({ roomId: id, bookingId: booking._id });
+};
+
 const confirmFromReconciliation = async (payment) => {
   if (payment.status !== PaymentStatus.INITIATED) return;
   const booking = await Booking.findById(payment.bookingId);
@@ -97,12 +125,9 @@ const confirmFromReconciliation = async (payment) => {
   payment.paidAt = payment.paidAt || new Date();
   await payment.save();
 
-  // Clear hold if room still held by this booking
+  // Clear the hold or reopen the property if the booking still owns it.
   try {
-    if (booking.roomId || booking.bookableItemId) {
-      const roomId = booking.roomId || booking.bookableItemId;
-      await releaseHold({ roomId, bookingId: booking._id });
-    }
+    await releaseBookableForBooking(booking);
   } catch (e) {
     console.error('[paymentReconcile] releaseHold after late success failed:', e.message);
   }
@@ -152,10 +177,7 @@ const failPaymentAndRelease = async (payment, reason) => {
   }
 
   try {
-    const roomId = booking.roomId || booking.bookableItemId;
-    if (roomId) {
-      await releaseHold({ roomId, bookingId: booking._id });
-    }
+    await releaseBookableForBooking(booking);
   } catch (e) {
     console.error('[paymentReconcile] releaseHold after fail failed:', e.message);
   }
