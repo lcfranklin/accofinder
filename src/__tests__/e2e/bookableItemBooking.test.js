@@ -206,6 +206,7 @@ describe('bookable item bookings', () => {
       description: 'A property used for update round-trip coverage.',
       verificationStatus: 'VERIFIED',
       owner: agentId,
+      verificationStatus: 'VERIFIED',
     });
 
     const update = await request(app)
